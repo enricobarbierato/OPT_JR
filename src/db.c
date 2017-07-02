@@ -18,6 +18,35 @@ void DBerror(MYSQL *conn, char * msg)
 	exit(-1);
 }
 
+
+int executeSQL(MYSQL *conn, char *statement)
+{
+	MYSQL_RES *result;
+	MYSQL_ROW rowdata;
+	char errorMsg[256];
+
+	if (conn == NULL)
+	  {
+	      fprintf(stderr, "DBError: %s\n", mysql_error(conn));
+	      exit(1);
+	  }
+
+
+	if (mysql_query(conn, statement))
+			DBerror(conn, "SQL failure executeSQL)\n");
+
+	result = mysql_store_result(conn);
+	if (result)
+	{
+		rowdata = mysql_fetch_row(result);
+		sprintf(errorMsg, "SQL failure mysql_fetch_row. Statement was: %s", statement);
+		if (!rowdata) DBerror(conn, errorMsg);
+		else
+		return atoi(rowdata[0]);
+	}
+
+return(-1);
+}
 /*
  * Open a DB connection
  */
@@ -64,8 +93,8 @@ void DBinsertrow(MYSQL * conn, char *id, char *app_id, float nu)
 	strcat(values, nuS);
 	strcat(values, ");");
 
-
-	if (mysql_query(conn, values))
-		DBerror(conn, "DBinsertrow failure");
+printf("%s\n", values);
+	//if (mysql_query(conn, values))
+	//	DBerror(conn, "DBinsertrow failure");
 
 }

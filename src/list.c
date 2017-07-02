@@ -31,7 +31,8 @@ void addResult(sResult ** first, sResult ** current,  int index, double nu, char
 	  *current = new;
 }
 
-void addParameters(sList ** first, sList ** current,  char * app_id, double w, double w1, double chi_0, double chi_C, double chi_c_1, double m, double M, double V, double v, double D, double csi, double csi_1)
+void addParameters(sList ** first, sList ** current,  char * app_id, double w, double w1, double chi_0, double chi_C, double chi_c_1, double m, double M, double V, double v, int D, double csi,
+		double csi_1, char * StageId, int datasetSize)
 {
 
 
@@ -60,7 +61,14 @@ void addParameters(sList ** first, sList ** current,  char * app_id, double w, d
 		    new->D = D;
 		    new->csi = csi;
 		    new->csi_1 = csi_1;
-
+		    new->stage = (char *)malloc(1024);
+		    if (new->stage == NULL)
+		    {
+		    		printf("addParameters: malloc failure (stage)\n");
+		    		exit(-1);
+		    }
+		    		    strcpy(new->stage, StageId);
+		    		    new->datasetSize = datasetSize;
 		 new->next = NULL;
 
 	  if (*first == NULL) *first = new;
@@ -98,8 +106,8 @@ void readList(sList *pointer)
 void printRow(sList *pointer)
 {
 
-    printf("w1 = %lf w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf V = %lf v = %lf D = %lf\n ",
-    		pointer->w1, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D);
+    //printf("w1 = %lf w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf V = %lf v = %lf D = %lf\n ",
+    		//pointer->w1, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D);
 }
 
 void searchResult(sResult *pointer, char * app_id)
