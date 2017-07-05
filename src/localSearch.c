@@ -6,8 +6,19 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "localSearch.h"
 
+#define STEP 1
+
+
+/*
+ * 		Name:
+ * 		Input parameters:
+ * 		Output parameters:
+ * 		Description:
+ *
+ */
 
 char* invokeLundstrom(int nNodes, int nCores, char * memory, int datasize,  char *appId)
 {
@@ -36,6 +47,13 @@ char* invokeLundstrom(int nNodes, int nCores, char * memory, int datasize,  char
 	return _run(cmd);
 }
 
+/*
+ * 		Name:
+ * 		Input parameters:
+ * 		Output parameters:
+ * 		Description:
+ *
+ */
 
 char* fakeLundstrom(int mode, int count, int nNodes, int nCores, char * memory, int datasize,  char *appId)
 {
@@ -77,83 +95,135 @@ case 1:
 }
 
 
-
-char * Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, char *appId, int step)
+/*
+ * 		Name:
+ * 		Input parameters:
+ * 		Output parameters:
+ * 		Description:
+ *
+ */
+void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, char *appId, int *R, int *bound, int *Rnew)
 {
-	int bound = nCores;
-	int time, R;
+
+	int time;
 	int fake = 0;
-	char * output = (char *)malloc(64);
+
 
 	// mode is a Temporary variable: it says to FakeLjundstrom to take a value greater (9) or lower (1) than D
 
+	*bound = nCores;
 	//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
-	time = atoi(fakeLundstrom(mode, fake++, nNodes, nCores, "8G", datasetSize, appId));step = 1;
+	time = atoi(fakeLundstrom(mode, fake++, nNodes, nCores, "8G", datasetSize, appId));
+	*R = time;
 
 //printf("R %d D %d\n", time, deadline);
 	if (time > deadline)
 	while (time > deadline)
 	{
-		R = time;
-		nCores = nCores + step;
+		*Rnew = time;
+		nCores = nCores + STEP;
 		//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
 		time = atoi(fakeLundstrom(0, fake++, nNodes, nCores, "8G", datasetSize, appId));
-		bound = nCores;
+		*bound = nCores;
 
 	}
 	else
 		while (time < deadline)
 			{
-				R = time;
-				nCores = nCores - step;
+				*Rnew = time;
+				nCores = nCores - STEP;
 				//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
 				time = atoi(fakeLundstrom(1, fake++, nNodes, nCores, "8G", datasetSize, appId));
-				bound = nCores;
+				*bound = nCores;
 			}
 
 	//printf("deadline = %d Lundstrom %d upperBound %d\n", deadline, time, bound);
-	sprintf(output, "%d %d", bound, R);
+
+	/* Return a string including:
+	 *
+	 * 1) Current number of Nodes;
+	 * 2) New number of Cores (bound);
+	 * 3) Lundstrom's output for the bound;
+	 */
+
+}
+
+/*
+ * 		Name:
+ * 		Input parameters:
+ * 		Output parameters:
+ * 		Description:
+ *
+ */
+int ObjFunctionComponent(sList * pointer)
+{
+
+	float wF;
+	double output;
+
+	if (pointer == NULL)
+	{
+		printf("ObjFunctionComponent failure: NULL pointer\n");
+		exit(-1);
+	}
+
+	/* Determine the application: is it the first or any other? */
+	switch(pointer->forWhom)
+	{
+		case FIRST_APP:
+			wF = pointer->w1;
+			break;
+		case OTHER_APPS:
+			wF = pointer->w;
+			break;
+		default:
+			printf("ObjFunctionComponent: unknown case within Switch statement: forWhom %d\n", pointer->forWhom);
+			exit(-1);
+			break;
+	}
+
+	printf("ObjFunctionComponent: %f %d %d\n",wF,pointer->R, pointer->D);
+
+	/* Determine how the obj function needs to be calculated */
+	switch(pointer->mode)
+	{
+		case FIRST:
+				if (pointer->R > pointer->D)
+					output = wF * (pointer->R - pointer->D);
+				else output = 0;
+			break;
+		case SECOND:
+				if (pointer->cores > pointer->newCores)
+					output = wF * (pointer->R - pointer->D);
+					 else output = 0;
+			break;
+		case THIRD:
+			break;
+		default:
+			printf("ObjFunctionComponent: unknown case within Switch statement: mode %d\n", pointer->forWhom);
+			exit(-1);
+			break;
+	}
+
+
+
 	return output;
 }
 
-int ObjFunctionComponent(double w, int R, int D)
-{
-	printf("Got: %f %d %d\n",w,R, D);
-	return w * (R - D);
-}
-
-
-char * localSearch(int mode, MYSQL *conn, char *db, char * appId, int datasetSize, int deadline)
-{
-	char statement[256];
-	char *output = (char *)malloc(64);
-	int nCores;
-	double R_n, R_nf;
-	int bound;
-	//int lowerBound;
-
-
-
-
 /*
- * 		TEMPORARY FIX - NEEDS TO BE CHANGED!
+ * 		Name:
+ * 		Input parameters:
+ * 		Output parameters:
+ * 		Description:
+ *
  */
-	int step = 20;
-	int nNodes = 6;
-
-	/* Retrieve the number of cores
-	sprintf(statement,
-			"select num_cores_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%d;"
-			, db, appId, datasetSize, deadline);*/
-
-	//nCores = executeSQL(conn, statement);
-
-	// TEST
-	nCores =12;
+void localSearch(int mode,  char * appId, int datasetSize, int nCores, int deadline, int *R, int *bound, int *Rnew)
+{
 
 
-	/* Calculate the bound */
-	//lowerBound = Bound(deadline, nNodes, nCores, datasetSize, appId, step, 0);
-	return Bound(mode, deadline, nNodes, nCores, datasetSize, appId, step);
+	int nNodes = 6; // Temporary value
+
+	Bound(mode, deadline, nNodes, nCores, datasetSize, appId,  &(*R), &(*bound), &(*Rnew));
+
 
 }

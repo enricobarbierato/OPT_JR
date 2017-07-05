@@ -22,8 +22,14 @@ typedef struct Result sResult;
 
 struct List
 {
+	/* Way to make calculation */
+	int mode; /* How the objective function is calculated */
+	int forWhom; /* First application or any other one */
+
+	/* CSV file parameters related to the single application */
 	char * app_id;
-    double w, w1;
+    double w;					/* Weight application (different from the first) */
+    double w1;					/* Weight first application */
     double chi_0;
     double chi_C, chi_c_1;
     double m;
@@ -34,10 +40,14 @@ struct List
     double csi, csi_1;
     char * stage;
     int datasetSize;
+
+    /* Calculated values */
     int bound;
     int R;
-    int newR;
-    int DELTA;
+    int Rnew;
+    int cores;
+    int newCores;
+
 	struct List *next;
 };
 typedef struct List sList;

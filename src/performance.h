@@ -9,8 +9,14 @@
 #define PERFORMANCE_H_
 #include "common.h"
 
-const int MAX_LINE_LENGTH = 1024;
 
+#define NODES 0;
+
+
+
+
+const int MAX_LINE_LENGTH = 1024;
+const double precision = 1/1000;
 
 const int _APP_ID = 1;
 const int _W = 2;
@@ -24,12 +30,13 @@ const int _D = 9;
 const int _St = 10;
 const int _Dsz = 11;
 
-char * localSearch(int, MYSQL *conn, char *, char * , int , int);
+void localSearch(int, char * , int , int, int, int*, int*, int*);
+
 void split (char str[], int *a, int *b);
-int ObjFunctionComponent(double, int , int );
+int ObjFunctionComponent(sList * );
 char* fakeLundstrom(int , int , int , int , char * , int ,  char *);
 
-const double precision = 1/1000;
+
 
 
 

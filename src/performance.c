@@ -37,14 +37,15 @@ int main(int argc, char **argv)
     char * app_id1;
     char * St;
     int DatasetSize;
-    int R1;
-    int R;
-    int bound1;
+
 
 
     double N;
-    char line[1024];
-    int rows = 1;
+    float nu_i;
+
+                            char line[1024]  ;
+
+                                 int rows = 1;
     double tot = 0;
     int newTotal = 0;
 
@@ -74,7 +75,7 @@ int main(int argc, char **argv)
      * Initialize Vars
      */
     sList *first = NULL, *current = NULL;
-    app_id = (char *)malloc(1024);
+    app_id = (char *)malloc(MAX_APP_LENGTH);
     if (app_id == NULL)
     {
           printf("app_id: malloc_failure in main\n");
@@ -158,24 +159,29 @@ int main(int argc, char **argv)
 							);
         if (conn == NULL) DBerror(conn, "open_db: Opening the database");
 
-    /*
-     * Calculate nu_1
-     */
+        /*
+             * Calculate nu_1,
+             * store  value in a db table
+             * invoke localsearch for the very first application
+             */
     nu_1 = N/(1 + tot);
+    current->cores = nu_1;
+
     DBinsertrow(conn, argv[1], app_id1, nu_1);
 
+    /* Invoke localSearch for the first application */
+    localSearch(0, app_id1, DatasetSize, D, nu_1, &current->R, &current->bound, &current->Rnew);
+
+    /* Update objective function  for the first application */
+    //newTotal+= ObjFunctionComponent(w1, current->Rnew, D1);
+    current->forWhom = FIRST_APP;
+    current->mode = FIRST;
+    newTotal+= ObjFunctionComponent(current);
 
     /*
-       	TEST LOCALSEARCH (first application only)
-     */
-    /* Invoke Lundstrom the first time */
-    R = atoi(fakeLundstrom(0, 0, V/v, 1, "8G", DatasetSize, app_id1));
-
-    split(localSearch(0, conn, parseConfigurationFile("OptDB_dbName", XML), app_id, DatasetSize, D), &bound1, &R1);
-    newTotal+= ObjFunctionComponent(w1, R1, D1);
-
-    /*
-     * Calculate nu_i, store each value in a db table and invoke localsearch for any other application
+     * Calculate nu_i,
+     * store each value in a db table
+     * invoke localsearch for any other application
      */
     rows = 2;
 
@@ -195,18 +201,27 @@ int main(int argc, char **argv)
 
         csi = getCsi(M/m, V/v, 1/1000);
 
-        float nu_i = nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
+        nu_i = nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
         //addResult(&rFirst, &rCurrent, rows, nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi)), current->app_id);
 
         DBinsertrow(conn, argv[1], app_id, nu_i);
+        current->cores = nu_i;
 
 
         /*
-           LOCALSEARCH: calculate the bound
+           LOCALSEARCH: calculate
+           1) the bound (new number of cores)
+           2) New Lundstrom value (Rnew)
         */
 
-        split(localSearch(1, conn, parseConfigurationFile("OptDB_dbName", XML), app_id, DatasetSize, D), &current->bound, &current->R);
-        newTotal+= ObjFunctionComponent(current->w, current->R, current->D);
+
+        localSearch(1, app_id, DatasetSize, D,  nu_i, &current->R, &current->bound, &current->Rnew);
+
+        current->forWhom = OTHER_APPS;
+        current->mode = FIRST;
+        newTotal+= ObjFunctionComponent(current);
+
+        //newTotal+= ObjFunctionComponent(current->w, current->R, current->D);
         rows++;
      }
 

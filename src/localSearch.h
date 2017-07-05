@@ -9,10 +9,12 @@
 #define SRC_LOCALSEARCH_H_
 
 #include "common.h"
-#include "db.h"
-#define LOWER 0
-#define UPPER 1
+#include "list.h"
 
+
+
+
+void  Bound(int , int , int , int , int , char *,  int *, int *, int *);
 
 char* invokeLundstrom(int , int , char * , int ,  char *);
 

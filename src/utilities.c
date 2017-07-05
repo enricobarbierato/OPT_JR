@@ -94,15 +94,6 @@ struct Best best;
 
 }
 
-void howAmIInvoked(char** argv, int argc)
-{
-	int i;
-
-	for (i = 0; i < argc; i++)
-		printf("%s\n", argv[i]);
-}
-
-
 
 
 
@@ -111,8 +102,6 @@ void howAmIInvoked(char** argv, int argc)
 void Usage()
 {
     	printf("Usage:\n");
-    	printf("./optimize <csv_filename> <N> nNodes nCores Dataset param app_id\n");
-    	printf("./optimize <csv_filename> <N> nNodes*nCores Dataset param app_id\n");
     	printf("./optimize <csv_filename> <N>\n");
     	exit(-1);
     }

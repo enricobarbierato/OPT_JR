@@ -11,6 +11,17 @@
 #define PRODUCT 2
 #define COUPLE 1
 
+#define FIRST_APP 0
+#define OTHER_APPS 1
+
+#define MAX_APP_LENGTH 1024
+
+#define FIRST 0
+#define SECOND 1
+#define THIRD 2
+
+
+
 struct Best
 {
 	int nNodes;
