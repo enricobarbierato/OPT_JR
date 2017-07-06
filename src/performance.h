@@ -30,7 +30,7 @@ const int _D = 9;
 const int _St = 10;
 const int _Dsz = 11;
 
-void localSearch(int, char * , int , int, int, int*, int*, int*);
+void localSearch(MYSQL *conn, char *, int, char * , int , int, int, int*, int*, int*);
 
 void split (char str[], int *a, int *b);
 int ObjFunctionComponent(sList * );

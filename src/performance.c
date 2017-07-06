@@ -170,7 +170,7 @@ int main(int argc, char **argv)
     DBinsertrow(conn, argv[1], app_id1, nu_1);
 
     /* Invoke localSearch for the first application */
-    localSearch(0, app_id1, DatasetSize, D, nu_1, &current->R, &current->bound, &current->Rnew);
+    localSearch(conn, parseConfigurationFile("OptDB_dbName", XML), 0, app_id1, DatasetSize, D, nu_1, &current->R, &current->bound, &current->Rnew);
 
     /* Update objective function  for the first application */
     //newTotal+= ObjFunctionComponent(w1, current->Rnew, D1);
@@ -215,7 +215,7 @@ int main(int argc, char **argv)
         */
 
 
-        localSearch(1, app_id, DatasetSize, D,  nu_i, &current->R, &current->bound, &current->Rnew);
+        localSearch(conn, parseConfigurationFile("OptDB_dbName", XML), 1, app_id, DatasetSize, D,  nu_i, &current->R, &current->bound, &current->Rnew);
 
         current->forWhom = OTHER_APPS;
         current->mode = FIRST;

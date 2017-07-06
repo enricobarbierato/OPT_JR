@@ -217,11 +217,22 @@ int ObjFunctionComponent(sList * pointer)
  * 		Description:
  *
  */
-void localSearch(int mode,  char * appId, int datasetSize, int nCores, int deadline, int *R, int *bound, int *Rnew)
+void localSearch(MYSQL *conn, char *db, int mode,  char * appId, int datasetSize, int nCores, int deadline, int *R, int *bound, int *Rnew)
 {
 
 
 	int nNodes = 6; // Temporary value
+	/* Retrieve nCores from the DB
+	 *
+	 *
+        sprintf(statement,
+                        "select num_cores_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%d;"
+                        , db, appId, datasetSize, deadline);
+
+        nCores = executeSQL(conn, statement);
+	 *
+	 */
+
 
 	Bound(mode, deadline, nNodes, nCores, datasetSize, appId,  &(*R), &(*bound), &(*Rnew));
 
