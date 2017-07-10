@@ -18,6 +18,14 @@
 
 #include "utilities.h"
 
+
+/*
+ * 		Name:					readFolder
+ * 		Input parameters:		A path to a folder
+ * 		Output parameters:		The name of subfolder contained in the folder corresponding to the folder in "path"
+ * 		Description:			This function returns, the first subFolder in the folder corresponding to "path"
+ *
+ */
 char * readFolder(char *  path)
 {
 	 struct dirent *de;
@@ -50,7 +58,14 @@ char * readFolder(char *  path)
 	    return NULL;
 }
 
-
+/*
+ * 		Name:					LundstromPredictor
+ * 		Input parameters:		int nValue, char * appId
+ * 		Output parameters:		The output from Lundstrom predictor
+ * 		Description:			This function invokes Lundstrom when, instead of giving the tuple (nNodes, nCores, Memory, Datasize) the tuple (nNodes*nCores, Memory, Datasize) is provided
+ * 								Currently is not used
+ *
+ */
 char * LundstromPredictor(int nValue, char * appId)
 {
 
@@ -106,6 +121,17 @@ void Usage()
     	exit(-1);
     }
 
+
+
+/*
+ * 		Name:					extractWord
+ * 		Input parameters:		char * source, int position
+ * 		Output parameters:		A word
+ * 		Description:			This function extracts a word in a line at a certain position (1st word, 2nd word, etc.). The words are separated by a space
+ * 								Note: This function is possibly redundant. Currently it is used to extract information from a folder such as 2_4_8G_500
+ *
+ */
+
 char * extractWord(char * source, int position)
 {
 
@@ -132,6 +158,14 @@ char * extractWord(char * source, int position)
 
 }
 
+
+/*
+ * 		Name:					getfield
+ * 		Input parameters:		char * source, int num
+ * 		Output parameters:		A word
+ * 		Description:			it extracts values from the csv file
+ *
+ */
 char * getfield(char* line, int num)
 {
 
@@ -147,14 +181,16 @@ char * getfield(char* line, int num)
 
 
 /*
- * doubleCompare
- * Compare two double, returning:
+ * 		Name:					doubleCompare
+ * 		Input parameters:		double a, double b
+ * 		Output parameters:		0  if a = b
+ * 								-1 if a < b
+ * 								1  if a > b
+ * 		Description:			Compare two doubles according to a certain precision (epsilon)
  *
- * 0  if a = b
- * -1 if a < b
- * 1  if a > b
  */
-int doubleCompare(double a, double b, double epsilon)
+
+double doubleCompare(double a, double b)
 {
 
 
@@ -170,13 +206,42 @@ int doubleCompare(double a, double b, double epsilon)
 
 }
 
-double getCsi(double a, double b, double epsilon)
+
+/*
+ * 		Name:					max
+ * 		Input parameters:		double a, double b
+ * 		Output parameters:		a double
+ * 		Description:			It takes the max between two doubles
+ *
+ */
+double max(double a, double b)
 {
-	 if (doubleCompare(a, b, epsilon) == -1) return a;
-	 else return b;
+	if (doubleCompare(a,b) == 1) return(a);
+	else return b;
 }
 
 
+/*
+ * 		Name:					getCsi
+ * 		Input parameters:		double a, double b
+ * 		Output parameters:		a double
+ * 		Description:			It takes the max between two doubles
+ * 		NOTE: This function is possibly redundant
+ *
+ */
+double getCsi(double a, double b)
+{
+	 if (doubleCompare(a, b) == -1) return a;
+	 else return b;
+}
+
+/*
+ * 		Name:					parseConfigurationFile
+ * 		Input parameters:		char *variable, int xml
+ * 		Output parameters:		The value (char *) of a variable
+ * 		Description:			It fetches the value of a variable in wsi_config.xml file
+ *
+ */
 char * parseConfigurationFile(char *variable, int xml)
 {
 FILE * fp;
@@ -251,6 +316,15 @@ FILE * fp;
 }
 
 
+/*
+ * 		Name:					bestMatch
+ * 		Input parameters:		char * path, int nValue
+ * 		Output parameters:		A best structure including the best match
+ * 		Description:			Given nNodes * nCores, it provides the best match in the data log repository
+ * 		NOTE: This function is not optimized - no need to use a struct. Needs some fixing
+ * 		NOTE: This function is not currently used
+ *
+ */
 struct Best bestMatch(char * path, int nValue)
 {
 	int dir_count = 0;
@@ -314,23 +388,14 @@ struct Best bestMatch(char * path, int nValue)
         return best;
 }
 
-void split (char *str, int *a, int *b)
-{
 
-	/* Split only two values */
-	char * item = strtok (str," ");
-	*a = atoi(item);
-
-	while (item != NULL)
-	  {
-
-	    item = strtok (NULL, " ");
-	    *b = atoi(item);
-	    break;
-	  }
-
-}
-
+/*
+ * 		Name:					_run
+ * 		Input parameters:		char * cmd
+ * 		Output parameters:		The output provided by the executed command
+ * 		Description:			This function executes a command ("cmd")
+ *
+ */
 char * _run(char * cmd)
 {
 	FILE *fp;

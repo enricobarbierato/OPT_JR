@@ -5,33 +5,15 @@
 #include "list.h"
 
 
-void addResult(sResult ** first, sResult ** current,  int index, double nu, char * app_id)
-{
-
-
-	  sResult *new = (sResult*) malloc(sizeof(sResult));
-	  if (new == NULL)
-	  {
-		  printf("addResults: Fatal Error: malloc failure\n");
-		  exit(-1);
-	  }
-
-	  new->app_id = (char *)malloc(1024);
-	  if (new->app_id == NULL)
-	  {
-		  printf("addResults(app_id): Fatal Error: malloc failure\n");
-	  }
-	  strcpy(new->app_id, app_id);
-	  new->index = index;
-      new->nu = nu;
-      new->next = NULL;
-
-	  if (*first == NULL) *first = new;
-	  else (*current)->next = new;
-	  *current = new;
-}
-
-void addParameters(sList ** first, sList ** current,  char * app_id, double w, double w1, double chi_0, double chi_C, double chi_c_1, double m, double M, double V, double v, int D, double csi,
+/*
+ * 		Name:					addParameters
+ * 		Input parameters:		int nApp, sList ** first, sList ** current,  char * app_id, double w, double chi_0, double chi_C, double chi_c_1, double m, double M, double V, double v, int D, double csi,
+		double csi_1, char * StageId, int datasetSize
+ * 		Output parameters:		Uodated pointers to the first and current element of the list
+ * 		Description:			This function adds all the information regarding an application into a list
+ *
+ */
+void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, double w, double chi_0, double chi_C, double chi_c_1, double m, double M, double V, double v, int D, double csi,
 		double csi_1, char * StageId, int datasetSize)
 {
 
@@ -42,19 +24,23 @@ void addParameters(sList ** first, sList ** current,  char * app_id, double w, d
 		  printf("addParameters: Fatal Error: malloc failure\n");
 		  exit(-1);
 	  }
-	  	    new->app_id = (char *)malloc(1024);
-	  	    if (new->app_id == NULL)
-	  	    {
-	  	    	printf("addParameters: malloc failure\n");
-	  	    	exit(-1);
-	  	    }
-	  	    strcpy(new->app_id, app_id);
-		    new->w = w;
-		    new->w1 = w1;
-		    new->chi_0 = chi_0;
-		    new->chi_C = chi_C;
-		    new->chi_c_1 = chi_c_1;
-		    new->m = m;
+
+
+	  if (nApp == 0) new->chi_c_1 = chi_c_1;
+
+
+	  new->w = w;
+	  new->app_id = (char *)malloc(1024);
+	  if (new->app_id == NULL)
+	  {
+	  	  	    printf("addParameters: malloc failure\n");
+	  	  	    exit(-1);
+	  }
+	  strcpy(new->app_id, app_id);
+	  new->chi_0 = chi_0;
+	  new->chi_C = chi_C;
+
+	  new->m = m;
 		    new->M = M;
 		    new->V = V;
 		    new->v = v;
@@ -77,17 +63,14 @@ void addParameters(sList ** first, sList ** current,  char * app_id, double w, d
 }
 
 
+/*
+ * 		Name:					readList
+ * 		Input parameters:		sList *pointer
+ * 		Output parameters:		Pointer to the first application
+ * 		Description:			This function prointd the information about all the applications in the list. It is used for debug only.
+ *
+ */
 
-void readResult(sResult *pointer)
-{
-while (pointer!=NULL)
-	{
-		printf("nu_%d = %lf\n", pointer->index, pointer->nu);
-		//if (pointer->previous!=NULL) printf("(prev. %lf) ", pointer->previous->T);
-		pointer = pointer->next;
-	}
-	printf("\n");
-}
 
 void readList(sList *pointer)
 {
@@ -106,26 +89,21 @@ void readList(sList *pointer)
 void printRow(sList *pointer)
 {
 
-    //printf("w1 = %lf w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf V = %lf v = %lf D = %lf\n ",
-    		//pointer->w1, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D);
+    printf("w1 = %lf w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf V = %lf v = %lf D = %d\n ",
+    		pointer->w1, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D);
 }
 
-void searchResult(sResult *pointer, char * app_id)
-{
-	while (pointer!=NULL)
-	{
-		if (strcmp(pointer->app_id, app_id) == 0)
-		{
-			printf("%lf\n", pointer->nu);
-			break;
-		}
-		else pointer = pointer->next;
-	}
-}
 
-void freeResultList(sResult * pointer)
+/*
+ * 		Name:					freeList
+ * 		Input parameters:		sList *pointer
+ * 		Output parameters:		Pointer to the first application
+ * 		Description:			It releases the allocated memory for the list
+ *
+ */
+void freeList(sList * pointer)
 {
-	sResult * next;
+	sList * next;
 	while (pointer != NULL)
 	{
 		next = pointer->next;
@@ -133,6 +111,15 @@ void freeResultList(sResult * pointer)
 		pointer = next;
 	}
 }
+
+/*
+ * 		Name:					returnARow
+ * 		Input parameters:		sList *pointer
+ * 		Output parameters:		Pointer to the first application
+ * 		Description:			This function returns, one by one, the applications of the list one by one
+ *
+ */
+
 sList * returnARow(sList ** first )
 {
 	if (*first == NULL) return NULL;
