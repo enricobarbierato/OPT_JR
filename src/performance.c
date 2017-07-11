@@ -14,8 +14,7 @@
 
 #include "list.h"
 #include "performance.h"
-#define  XML 1
-#define  NOXML 0
+
 
 
 
@@ -30,7 +29,7 @@ int main(int argc, char **argv)
     double M;
     double V;
     double v;
-    double D, D1;
+    double D;
     double csi, csi_1;
     double nu_1;
     char * app_id;
@@ -38,27 +37,30 @@ int main(int argc, char **argv)
     char * St;
     int DatasetSize;
 
-
-
     double N;
-    float nu_i;
 
-                            char line[1024]  ;
+    char line[1024];
 
-                                 int rows = 1;
+    int rows = 1;
     double tot = 0;
-    int newTotal = 0;
-
-    //howAmIInvoked(argv, argc);
 
 
+    /*
+     * Check Usage
+     */
     if (argc < 3) Usage();
 
 
+    /*
+     * Find where the file has been uploaded and determine absolute file path
+     */
     char *folder = parseConfigurationFile("UPLOAD_HOME", XML);
     char *filename = strcat(folder, "/");
     filename = strcat(folder, argv[1]);
 
+    /*
+     * Read total cores available
+     */
     N = atof(argv[2]);
 
 
@@ -104,44 +106,41 @@ int main(int argc, char **argv)
 
         if ((strlen(line)==0) || (strstr(line, "#")==NULL)) // Skip if it's comment or empty line
         {
-        	if (rows > 1)
+        	strcpy(app_id, getfield(tmp, _APP_ID));tmp = strdup(line);
+        	if (rows > 1) /* Any other application than the first */
         	{
-        		strcpy(app_id, getfield(tmp, _APP_ID));tmp = strdup(line);
         		w = 	atof(getfield(tmp, _W));tmp = strdup(line);
         		chi_0 = atof(getfield(tmp, _CHI_0));tmp = strdup(line);
         		chi_C = atof(getfield(tmp, _CHI_C));tmp = strdup(line);
-        		M = 	atof(getfield(tmp, _M));tmp = strdup(line);
-        		m = 	atof(getfield(tmp, _m));tmp = strdup(line);
-        		V = 	atof(getfield(tmp, _V));tmp = strdup(line);
-        		v = 	atof(getfield(tmp, _v));tmp = strdup(line);
-        		D = 	atoi(getfield(tmp, _D));tmp = strdup(line);
-        		strcpy(St, getfield(tmp, _St));tmp = strdup(line);
-        		DatasetSize = 	atoi(getfield(tmp, _Dsz));
-
-        		csi = getCsi(M/m, V/v, precision);
-         		addParameters(&first, &current, app_id, w, w1, chi_0, chi_C, chi_c_1, m, M, V, v, D, csi, csi_1, St, DatasetSize);
-         		//printf("%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n", w, w1, chi_0, chi_C, chi_c_1, m, M, V, v, D, csi, csi_1);
-        	    tot = tot + sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
-
         	}
-        	else
+        	else /* First application */
         	{
-        		strcpy(app_id1, getfield(tmp, _APP_ID));tmp = strdup(line);
-        		w1 = 	atof(getfield(tmp, _W));tmp = strdup(line);
+        		w1 = 	atof(getfield(tmp, _W));tmp = strdup(line); w=w1;
         		chi_0 = atof(getfield(tmp, _CHI_0));tmp = strdup(line);
         		chi_c_1 = atof(getfield(tmp, _CHI_C));tmp = strdup(line);
-        		M = 	atof(getfield(tmp, _M));tmp = strdup(line);
-        		m = 	atof(getfield(tmp, _m));tmp = strdup(line);
-        		V = 	atof(getfield(tmp, _V));tmp = strdup(line);
-        		v = 	atof(getfield(tmp, _v));tmp = strdup(line);
-        		D1 = 	atoi(getfield(tmp, _D));tmp = strdup(line);
-        		csi_1 = getCsi(M/m, V/v, precision);tmp = strdup(line);
-        		strcpy(St, getfield(tmp, _St));tmp = strdup(line);
-        		DatasetSize = 	atoi(getfield(tmp, _Dsz));
-
-        		//printf("%lf %lf %lf %lf %lf %lf %lf\n", w1, chi_c_1, m, M, V, v, D, csi_1);
         	}
 
+        	/* Parameters common for all the applications */
+        	M = 	atof(getfield(tmp, _M));tmp = strdup(line);
+        	m = 	atof(getfield(tmp, _m));tmp = strdup(line);
+        	V = 	atof(getfield(tmp, _V));tmp = strdup(line);
+        	v = 	atof(getfield(tmp, _v));tmp = strdup(line);
+
+        	if (rows > 1) /* Any other application than the first */
+        	{
+        			csi = getCsi(M/m, V/v);
+        			tot = tot + sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
+        	}
+        	else csi_1 = getCsi(M/m, V/v); /* First application */
+
+        	D = 	atoi(getfield(tmp, _D));tmp = strdup(line);
+        	strcpy(St, getfield(tmp, _St));tmp = strdup(line);
+        	DatasetSize = 	atoi(getfield(tmp, _Dsz));
+        	//printf("app_id %s w %lf w1 %lf chi_0 %lf chi_C %lf chi_c_1 %lf\n m %lf M %lf V %lf v %lf D %lf csi  %lf csi_1 %lf\n",
+        	  //      app_id,   w,    w1,    chi_0,    chi_C,    chi_c_1,    m,    M,    V,    v,    D,    csi,     csi_1);
+
+        	/* Add application parameters to the List */
+        	addParameters(rows, &first, &current, app_id, w, chi_0, chi_C, chi_c_1, m, M, V, v, D, csi, csi_1, St, DatasetSize);
         	rows++;
         	free(tmp);
         }
@@ -159,78 +158,25 @@ int main(int argc, char **argv)
 							);
         if (conn == NULL) DBerror(conn, "open_db: Opening the database");
 
-        /*
-             * Calculate nu_1,
-             * store  value in a db table
-             * invoke localsearch for the very first application
-             */
-    nu_1 = N/(1 + tot);
-    current->cores = nu_1;
 
-    DBinsertrow(conn, argv[1], app_id1, nu_1);
-
-    /* Invoke localSearch for the first application */
-    localSearch(conn, parseConfigurationFile("OptDB_dbName", XML), 0, app_id1, DatasetSize, D, nu_1, &current->R, &current->bound, &current->Rnew);
-
-    /* Update objective function  for the first application */
-    //newTotal+= ObjFunctionComponent(w1, current->Rnew, D1);
-    current->forWhom = FIRST_APP;
-    current->mode = FIRST;
-    newTotal+= ObjFunctionComponent(current);
+        /* Calculate in advance nu_1 (first application) */
+     nu_1 = N/(1 + tot);
 
     /*
-     * Calculate nu_i,
+     * Calculate nu_i (for other application different than the first),
      * store each value in a db table
      * invoke localsearch for any other application
      */
-    rows = 2;
-
-    //sResult *rFirst= NULL, *rCurrent=NULL;
-    while ((current=returnARow(&first))!=NULL)
-    {
-    	strcpy(app_id, current->app_id);
-        w = 	current->w;
-        chi_0 = current->chi_0;
-        chi_C = current->chi_C;
-        M = 	current->M;
-        m = 	current->m;
-        V = 	current->V;
-        v = 	current->v;
-        D = 	current->D;
 
 
-        csi = getCsi(M/m, V/v, 1/1000);
+    process(conn, argv[1], first, nu_1, w1, csi_1, chi_c_1);
+    localSearch(first);
+    readList(first);
 
-        nu_i = nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
-        //addResult(&rFirst, &rCurrent, rows, nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi)), current->app_id);
-
-        DBinsertrow(conn, argv[1], app_id, nu_i);
-        current->cores = nu_i;
-
-
-        /*
-           LOCALSEARCH: calculate
-           1) the bound (new number of cores)
-           2) New Lundstrom value (Rnew)
-        */
-
-
-        localSearch(conn, parseConfigurationFile("OptDB_dbName", XML), 1, app_id, DatasetSize, D,  nu_i, &current->R, &current->bound, &current->Rnew);
-
-        current->forWhom = OTHER_APPS;
-        current->mode = FIRST;
-        newTotal+= ObjFunctionComponent(current);
-
-        //newTotal+= ObjFunctionComponent(current->w, current->R, current->D);
-        rows++;
-     }
-
-    printf("New ObjFun = %d", newTotal);
+    /* De-allocate resources and close copnnection */
     fclose(stream);
-
-    free(current);
+    freeList(first);
     free(app_id);
-
     DBclose(conn);
 
     // This return code is tested by the caller

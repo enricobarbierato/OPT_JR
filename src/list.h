@@ -24,12 +24,12 @@ struct List
 {
 	/* Way to make calculation */
 	int mode; /* How the objective function is calculated */
-	int forWhom; /* First application or any other one */
 
 	/* CSV file parameters related to the single application */
 	char * app_id;
+	char *app_id_j;
     double w;					/* Weight application (different from the first) */
-    double w1;					/* Weight first application */
+    //double w1;					/* Weight first application */
     double chi_0;
     double chi_C, chi_c_1;
     double m;
@@ -40,6 +40,9 @@ struct List
     double csi, csi_1;
     char * stage;
     int datasetSize;
+    double delta_fo;
+
+    float nu;
 
     /* Calculated values */
     int bound;
@@ -57,12 +60,12 @@ typedef struct List sList;
 /*
  * Function templates
  */
-
+void freeList(sList * pointer);
 void readList(sList *);
 void searchResult(sResult *, char *);
 void printRow(sList *);
 void freeResultList(sResult * );
-void addParameters(sList ** , sList ** ,  char *, double , double , double , double , double , double , double , double , double , int , double , double, char *, int  );
+void addParameters(int, sList ** , sList ** ,  char *, double , double ,  double , double , double , double , double , double , int , double , double, char *, int  );
 sList * returnARow(sList **  );
 void readResult(sResult *);
 

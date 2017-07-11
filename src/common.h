@@ -16,10 +16,10 @@
 
 #define MAX_APP_LENGTH 1024
 
-#define FIRST 0
-#define SECOND 1
-#define THIRD 2
 
+
+#define  XML 1
+#define  NOXML 0
 
 
 struct Best
@@ -34,8 +34,9 @@ struct Best
 
 /* Templates */
 
-int doubleCompare(double, double, double);
-double getCsi(double , double , double );
+double max(double, double);
+double doubleCompare(double, double);
+double getCsi(double , double );
 char * parseConfigurationFile(char *, int);
 struct Best bestMatch(char *, int);
 char * extractWord(char * , int );

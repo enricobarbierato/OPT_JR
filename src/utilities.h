@@ -16,14 +16,7 @@
 
 const int PARAMETERS = 11;
 
-
-// Comment this line if you are debugging the application
-//#define CE_DEBUG 1
-
-typedef int boolean;
-
-#define true 1;
-#define false 0;
+const double epsilon = 0.001;
 
 
 

@@ -55,6 +55,12 @@ void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, d
 		    }
 		    		    strcpy(new->stage, StageId);
 		    		    new->datasetSize = datasetSize;
+
+	  /* Initialize the parameter that will be calculated later */
+		 new->R = 0;
+		 new->Rnew = 0;
+		 new->bound = 0;
+
 		 new->next = NULL;
 
 	  if (*first == NULL) *first = new;
@@ -74,7 +80,7 @@ void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, d
 
 void readList(sList *pointer)
 {
-	if (pointer == NULL) return;
+	printf("\n\nApplications list content:\n");
 
 
 	while (pointer!=NULL)
@@ -89,8 +95,9 @@ void readList(sList *pointer)
 void printRow(sList *pointer)
 {
 
-    printf("w1 = %lf w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf V = %lf v = %lf D = %d\n ",
-    		pointer->w1, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D);
+    printf("app_id = %s  w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf \n V = %lf v = %lf D = %d R = %d Rnew = %d bound = %d nu = %lf cores = %d newCores = %d swapped with %s DELTA = %lf\n\n ",
+    		pointer->app_id, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D, pointer->R, pointer->Rnew, pointer->bound, pointer->nu,
+			pointer->cores, pointer->newCores, pointer->app_id_j, pointer->delta_fo);
 }
 
 
@@ -104,12 +111,13 @@ void printRow(sList *pointer)
 void freeList(sList * pointer)
 {
 	sList * next;
+
 	while (pointer != NULL)
-	{
-		next = pointer->next;
-		free(pointer);
-		pointer = next;
-	}
+	    {
+	       next = pointer;
+	       pointer = pointer->next;
+	       if (next != NULL) free(next);
+	    }
 }
 
 /*

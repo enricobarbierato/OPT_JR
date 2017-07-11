@@ -16,7 +16,7 @@
 
 
 const int MAX_LINE_LENGTH = 1024;
-const double precision = 1/1000;
+
 
 const int _APP_ID = 1;
 const int _W = 2;
@@ -30,7 +30,9 @@ const int _D = 9;
 const int _St = 10;
 const int _Dsz = 11;
 
-void localSearch(MYSQL *conn, char *, int, char * , int , int, int, int*, int*, int*);
+void findBound(MYSQL *conn, char *, int, int , sList **);
+void localSearch(sList *);
+void process(MYSQL *, char * , sList *, double, double, double, double);
 
 void split (char str[], int *a, int *b);
 int ObjFunctionComponent(sList * );

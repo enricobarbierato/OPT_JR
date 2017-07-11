@@ -12,6 +12,7 @@
 #define STEP 1
 
 
+
 /*
  * 		Name:					invokeLundstrom
  * 		Input parameters:		int nNodes, int nCores, char * memory, int datasize,  char *appId
@@ -71,13 +72,13 @@ case 0:
 	switch(count)
 	{
 	case 0:
-			strcpy(time, "40000");
+			strcpy(time, "41000");
 			break;
 	case 1:
-			strcpy(time, "39000");
+			strcpy(time, "40000");
 			break;
 	case 2:
-			strcpy(time, "38000");
+			strcpy(time, "39000");
 			break;
 	default:
 			printf("fakeLundstrom out of range parameter (count %d)\n", count);
@@ -138,7 +139,7 @@ void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, cha
 		nCores = nCores + STEP;
 		//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
 		time = atoi(fakeLundstrom(0, fake++, nNodes, nCores, "8G", datasetSize, appId));
-		*bound = nCores;
+		*bound = nCores;//printf("(up) bound = %d\n", *bound);
 
 	}
 	else
@@ -149,17 +150,11 @@ void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, cha
 				//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
 				time = atoi(fakeLundstrom(1, fake++, nNodes, nCores, "8G", datasetSize, appId));
 				*bound = nCores;
-				printf("%d %d\n", time, deadline);
+				//printf("(down) bound = %d\n", *bound);
 			}
 
-	//printf("deadline = %d Lundstrom %d upperBound %d\n", deadline, time, bound);
+	//printf("R = %d Rnew = %d bound = %d\n", *R, *Rnew, *bound);
 
-	/* Return a string including:
-	 *
-	 * 1) Current number of Nodes;
-	 * 2) New number of Cores (bound);
-	 * 3) Lundstrom's output for the bound;
-	 */
 
 }
 
@@ -185,23 +180,26 @@ int ObjFunctionComponent(sList * pointer)
 
 
 
-	printf("ObjFunctionComponent: %s %f %d %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D);
+	printf("ObjFunctionComponent: %s %f %d %d %d %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D, pointer->cores, pointer->newCores);
 
 	/* Determine how the obj function needs to be calculated */
 	switch(pointer->mode)
 	{
-		case FIRST:
+		case R_ALGORITHM:
 
 				if (pointer->R > pointer->D)
 					output = pointer->w * (pointer->R - pointer->D);
 				else output = 0;
 			break;
-		case SECOND:
+		case CORES_ALGORITHM:
 				if (pointer->cores < pointer->newCores)
 					output = pointer->w * (pointer->R - pointer->D);
 					 else output = 0;
 			break;
-		case THIRD:
+		case NCORES_ALGORITHM:
+				if (pointer->newCores < pointer->bound)
+					output = pointer->w * atoi(fakeLundstrom(1, 0, 2, pointer->newCores, "8G", pointer->datasetSize, pointer->app_id)) - pointer->R;
+				else pointer = 0;
 			break;
 		default:
 			printf("ObjFunctionComponent: unknown case within Switch statement: mode %d\n", pointer->mode);
@@ -216,14 +214,14 @@ int ObjFunctionComponent(sList * pointer)
 
 /*
  * 		Name:					findBound
- * 		Input parameters:		MYSQL *conn, char *db, int mode,  int deadline,
+ * 		Input parameters:		MYSQL *conn, char *db, int mode,  int deadline,sList *pointer
  * 		Output parameters:		Updated fields R, bound and Rnew (see "Bound" function for more details)
  * 		Description:			Initially, this function queries the lookup table to find the number of cores, calculated by OPT_IC earlier,
  * 								given a deadline, an application id and a dataset size.
  * 								Secondly, it invokes the Bound function.
  *
  */
-void findBound(MYSQL *conn, char *db, int mode,  int deadline, sList **pointer)
+void findBound(MYSQL *conn, char *db, int mode,  int deadline, sList *pointer)
 {
 
 
@@ -239,14 +237,14 @@ void findBound(MYSQL *conn, char *db, int mode,  int deadline, sList **pointer)
         nCores = executeSQL(conn, statement);
 	 *
 	 */
-
+	pointer->cores = nCores;
 
 	Bound(mode, deadline, nNodes, nCores,
-			(*pointer)->datasetSize,
-			(*pointer)->app_id,
-			&((*pointer)->R),
-			&((*pointer)->bound),
-			&((*pointer)->Rnew));
+			pointer->datasetSize,
+			pointer->app_id,
+			&(pointer->R),
+			&(pointer->bound),
+			&(pointer->Rnew));
 
 
 }
@@ -266,6 +264,8 @@ void localSearch(sList * application_i)
 	double DELTA_i, DELTA_j;
 	double DELTA_fo_App_i, DELTA_fo_App_j;
 
+
+	printf("\n\nLocalsearch\n");
 //for (int i = 0; i < MAX_ITERATIONS; i++)
 	while (application_i != NULL)
 	{
@@ -280,18 +280,28 @@ void localSearch(sList * application_i)
 				DELTA_j = application_j->v/nCoreMov;
 
 				application_i->newCores = application_i->cores + DELTA_i*application_i->cores;
-				application_j->newCores = application_j->cores - DELTA_i*application_i->cores;
-				application_i->mode= SECOND;
-				application_j->mode= SECOND;
+				application_j->newCores = application_j->cores - DELTA_j*application_j->cores;
+				application_i->mode= CORES_ALGORITHM;
+				application_j->mode= CORES_ALGORITHM;
 
 				DELTA_fo_App_i = ObjFunctionComponent(application_i);
 				DELTA_fo_App_j = ObjFunctionComponent(application_j);
 
-				printf("AppId_i %s 			   DELTA_i %lf application_i->newCores %d DELTA_fo_App_i  %lf\n",
+				application_i->app_id_j = (char *)malloc(1024);
+				if (application_i->app_id_j == NULL)
+				{
+					printf("malloc failure in localSearch\n");
+					exit(-1);
+				}
+				strcpy(application_i->app_id_j, application_j->app_id);
+				application_i->delta_fo = DELTA_fo_App_i + DELTA_fo_App_j;
+
+
+				printf("AppId_i %s DELTA_i %lf application_i->newCores %d DELTA_fo_App_i  %lf\n",
 						application_i->app_id, DELTA_i,    application_i->newCores,    DELTA_fo_App_i);
 
-				printf("AppId_j %s 			   DELTA_j %lf application_j->newCores %d DELTA_fo_App_j  %lf\n",
-						application_j->app_id, DELTA_j,    application_j->newCores,    DELTA_fo_App_j);
+				//printf("AppId_j %s DELTA_j %lf application_j->newCores %d DELTA_fo_App_j  %lf\n",
+					//	application_j->app_id, DELTA_j,    application_j->newCores,    DELTA_fo_App_j);
 
 
 				// Update the lists with values used
@@ -301,8 +311,74 @@ void localSearch(sList * application_i)
 		application_i = application_i->next;
 	}
 
-	free(application_j);
-	free(first);
+	//free(application_j);
+	//free(first);
 }
 
+
+void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, double w1, double csi_1, double chi_c_1)
+{
+
+	//double chi_0;
+	double chi_C;
+	double M;
+	double m;
+	double v;
+	double V;
+	double D;
+	int rows = 1;
+	char * app_id;
+	double w;
+
+	double indexF;
+	double csi;
+
+
+	app_id = (char *)malloc(MAX_APP_LENGTH);
+	if (app_id == NULL)
+	{
+	          printf("app_id: malloc_failure in process\n");
+	          exit(-1);
+    }
+
+	printf("Calculates the indices and update the list\n");
+
+	while (current != NULL)
+	    {
+	    	strcpy(app_id, current->app_id);
+
+	    	if (rows > 1 ) w = 	current->w;/* Any other application than the first */
+
+	    	//chi_0 = current->chi_0;
+	        chi_C = current->chi_C;
+	        M = 	current->M;
+	        m = 	current->m;
+	        V = 	current->V;
+	        v = 	current->v;
+	        D = 	current->D;
+
+	        csi = getCsi(M/m, V/v);
+
+	        if (rows == 1) indexF = nu_1; else indexF = nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
+	        current->nu = indexF;
+
+	        DBinsertrow(conn, uniqueFilename, app_id, indexF);
+
+	        current->cores = indexF;
+
+	        /*
+	           Calculate
+	           1) the bound (new number of cores)
+	           2) New Lundstrom value (Rnew)
+	        */
+
+	        findBound(conn, parseConfigurationFile("OptDB_dbName", XML), 0, D, current);
+	        //printf("%d %d %d\n", current->R, current->Rnew, current->bound);
+	        current->mode = R_ALGORITHM;
+
+
+	        current = current->next;
+	        rows++;
+	     }
+}
 
