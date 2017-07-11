@@ -274,7 +274,7 @@ void localSearch(sList * application_i)
 		{
 			if (strcmp(application_i->app_id, application_j->app_id)!= 0)
 			{
-				nCoreMov = max(application_i->v, application_i->v);
+				nCoreMov = max(application_i->V, application_i->V);
 
 				DELTA_i = application_i->v/nCoreMov;
 				DELTA_j = application_j->v/nCoreMov;
