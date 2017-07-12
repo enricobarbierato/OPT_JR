@@ -68,38 +68,39 @@ char* fakeLundstrom(int mode, int count, int nNodes, int nCores, char * memory, 
 
 switch(mode)
 {
-case 0:
+case DOWN:
 	switch(count)
 	{
-	case 0:
-			strcpy(time, "41000");
-			break;
-	case 1:
-			strcpy(time, "40000");
-			break;
-	case 2:
-			strcpy(time, "39000");
-			break;
-	default:
-			printf("fakeLundstrom out of range parameter (count %d)\n", count);
-			break;
+		case 0:
+					strcpy(time, "38000");
+					break;
+			case 1:
+					strcpy(time, "39000");
+					break;
+			case 2:
+					strcpy(time, "40000");
+					break;
+			default:
+					printf("fakeLundstrom out of range parameter (count %d)\n", count);
+					break;
 	}
 	break;
-case 1:
+case UP:
 	switch(count)
 		{
 		case 0:
-				strcpy(time, "39000");
+				strcpy(time, "42000");
 				break;
 		case 1:
-				strcpy(time, "40000");
+				strcpy(time, "41000");
 				break;
 		case 2:
-				strcpy(time, "41000");
+				strcpy(time, "40000");
 				break;
 		default:
 				printf("fakeLundstrom out of range parameter (count %d)\n", count);
 				break;
+
 		}
 		break;
 }
@@ -122,38 +123,44 @@ void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, cha
 
 	int time;
 	int fake = 0;
+	int BTime = 0;
+	int BCores = 0;
 
 
-	// mode is a Temporary variable: it says to FakeLjundstrom to take a value greater (9) or lower (1) than D
+	// mode is a Temporary variable: it says to FakeLjundstrom to take a value greater (0) or lower (1) than D
 
 	*bound = nCores;
 	//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
 	time = atoi(fakeLundstrom(mode, fake++, nNodes, nCores, "8G", datasetSize, appId));
 	*R = time;
 
-//printf("R %d D %d\n", time, deadline);
+	//printf("INIZIO R %d D %d\n", time, deadline);
 	if (time > deadline)
 	while (time > deadline)
 	{
-		*Rnew = time;
+
+		BTime = time;
+		//printf("(up) time = %d Rnew =%d\n", time, BTime);
 		nCores = nCores + STEP;
-		//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
-		time = atoi(fakeLundstrom(0, fake++, nNodes, nCores, "8G", datasetSize, appId));
-		*bound = nCores;//printf("(up) bound = %d\n", *bound);
+		time = atoi(fakeLundstrom(UP, fake++, nNodes, nCores, "8G", datasetSize, appId));
+		BCores = nCores;
 
 	}
 	else
 		while (time < deadline)
-			{
-				*Rnew = time;
+		{
+
 				nCores = nCores - STEP;
 				//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
-				time = atoi(fakeLundstrom(1, fake++, nNodes, nCores, "8G", datasetSize, appId));
-				*bound = nCores;
-				//printf("(down) bound = %d\n", *bound);
-			}
+				time = atoi(fakeLundstrom(DOWN, fake++, nNodes, nCores, "8G", datasetSize, appId));
+				BCores = nCores;
+				BTime = time;
+				//printf("(down) time = %d Rnew =%d\n", time, BTime);
+		}
 
-	//printf("R = %d Rnew = %d bound = %d\n", *R, *Rnew, *bound);
+	*Rnew = BTime;
+	*bound = BCores;
+	printf("D = %d R = %d Rnew = %d bound = %d\n", deadline, *R, *Rnew, *bound);
 
 
 }
@@ -180,33 +187,34 @@ int ObjFunctionComponent(sList * pointer)
 
 
 
-	printf("ObjFunctionComponent: %s %f %d %d %d %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D, pointer->cores, pointer->newCores);
+	//printf("ObjFunctionComponent: App_id %s w %f R %d D %d nCores %d newCores %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D, pointer->cores, pointer->newCores);
 
 	/* Determine how the obj function needs to be calculated */
 	switch(pointer->mode)
 	{
 		case R_ALGORITHM:
-
+			printf("R Algorithm\n");
 				if (pointer->R > pointer->D)
 					output = pointer->w * (pointer->R - pointer->D);
 				else output = 0;
 			break;
 		case CORES_ALGORITHM:
-				if (pointer->cores < pointer->newCores)
-					output = pointer->w * (pointer->R - pointer->D);
-					 else output = 0;
+			printf("Cores Algorithm\n");
+				if (pointer->cores > pointer->newCores) output = 0;
+				else output = pointer->w * (pointer->Rnew - pointer->D);
+
 			break;
 		case NCORES_ALGORITHM:
-				if (pointer->newCores < pointer->bound)
-					output = pointer->w * atoi(fakeLundstrom(1, 0, 2, pointer->newCores, "8G", pointer->datasetSize, pointer->app_id)) - pointer->R;
-				else pointer = 0;
+			printf("NCores Algorithm\n");
+				if (pointer->newCores >pointer->bound) output = 0;
+				else output = pointer->w * atoi(fakeLundstrom(1, 0, 2, pointer->newCores, "8G", pointer->datasetSize, pointer->app_id)) - pointer->R;
 			break;
 		default:
 			printf("ObjFunctionComponent: unknown case within Switch statement: mode %d\n", pointer->mode);
 			exit(-1);
 			break;
 	}
-
+printf("FO output: %lf\n", output);
 
 
 	return output;
@@ -226,7 +234,12 @@ void findBound(MYSQL *conn, char *db, int mode,  int deadline, sList *pointer)
 
 
 	int nNodes = 6; // Temporary value
-	int nCores = 12; // Temporary value
+	int nCores;
+
+
+	// Temporary value
+	if (strcmp(pointer->app_id, "Q26") == 0) nCores = 10;
+	else nCores = 12;
 	/* Retrieve nCores from the DB
 	 *
 	 *
@@ -274,19 +287,27 @@ void localSearch(sList * application_i)
 		{
 			if (strcmp(application_i->app_id, application_j->app_id)!= 0)
 			{
-				nCoreMov = max(application_i->V, application_i->V);
+				printf("Comparing %s with %s\n", application_i->app_id, application_j->app_id);
+				printf("-----------------------------------------------\n");
+				nCoreMov = max(application_i->V, application_j->V);
 
-				DELTA_i = application_i->v/nCoreMov;
-				DELTA_j = application_j->v/nCoreMov;
+				DELTA_i = nCoreMov/application_i->V;
+				DELTA_j = nCoreMov/application_j->V;
 
-				application_i->newCores = application_i->cores + DELTA_i*application_i->cores;
-				application_j->newCores = application_j->cores - DELTA_j*application_j->cores;
+				application_i->newCores = application_i->cores + DELTA_i*application_i->V;
+				application_j->newCores = application_j->cores - DELTA_j*application_j->V;
 				application_i->mode= CORES_ALGORITHM;
 				application_j->mode= CORES_ALGORITHM;
 
+				/*
+				 * Call object function evaluation
+				 */
 				DELTA_fo_App_i = ObjFunctionComponent(application_i);
 				DELTA_fo_App_j = ObjFunctionComponent(application_j);
 
+				/*
+				 * Keep track of the application with whom the comparison was made
+				 */
 				application_i->app_id_j = (char *)malloc(1024);
 				if (application_i->app_id_j == NULL)
 				{
@@ -300,22 +321,31 @@ void localSearch(sList * application_i)
 				printf("AppId_i %s DELTA_i %lf application_i->newCores %d DELTA_fo_App_i  %lf\n",
 						application_i->app_id, DELTA_i,    application_i->newCores,    DELTA_fo_App_i);
 
-				//printf("AppId_j %s DELTA_j %lf application_j->newCores %d DELTA_fo_App_j  %lf\n",
-					//	application_j->app_id, DELTA_j,    application_j->newCores,    DELTA_fo_App_j);
+				printf("AppId_j %s DELTA_j %lf application_j->newCores %d DELTA_fo_App_j  %lf\n",
+						application_j->app_id, DELTA_j,    application_j->newCores,    DELTA_fo_App_j);
 
 
 				// Update the lists with values used
 			}
 			application_j = application_j->next;
 		}
+
 		application_i = application_i->next;
 	}
 
-	//free(application_j);
-	//free(first);
+
 }
 
-
+/*
+ * 		Name:					process
+ * 		Input parameters:		MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, double w1, double csi_1, double chi_c_1
+ * 		Output parameters:		none
+ * 		Description:			Given nu_1 and other measures related to the first applications:
+ * 								- it computes the nu indices for all the other applications:
+ * 								- it updates the DB;
+ * 								- it calculates the bound for each application
+ *
+ */
 void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, double w1, double csi_1, double chi_c_1)
 {
 
@@ -372,7 +402,8 @@ void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, do
 	           2) New Lundstrom value (Rnew)
 	        */
 
-	        findBound(conn, parseConfigurationFile("OptDB_dbName", XML), 0, D, current);
+	        if (strcmp(current->app_id, "Q26") == 0) findBound(conn, parseConfigurationFile("OptDB_dbName", XML), DOWN, D, current);
+	        else findBound(conn, parseConfigurationFile("OptDB_dbName", XML), UP, D, current);
 	        //printf("%d %d %d\n", current->R, current->Rnew, current->bound);
 	        current->mode = R_ALGORITHM;
 
