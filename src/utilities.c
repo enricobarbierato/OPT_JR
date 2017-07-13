@@ -401,6 +401,8 @@ char * _run(char * cmd)
 	FILE *fp;
 	  char *path = (char *)malloc(1024);
 
+	  printf("_run %s\n", cmd);
+
 	  /* Open the command for reading. */
 	  fp = popen(cmd, "r");
 	  if (fp == NULL) {
@@ -410,7 +412,7 @@ char * _run(char * cmd)
 
 	  /* Read the output a line at a time - output it. */
 	  while (fgets(path, sizeof(path)-1, fp) != NULL) {
-	    printf("%s", path);
+	    printf("output for %s: %s\n",cmd,  path);break;
 	  }
 
 	  /* close */

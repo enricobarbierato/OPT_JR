@@ -10,6 +10,9 @@
 #include "localSearch.h"
 
 #define STEP 1
+#define MAX_ITERATIONS 2
+
+//#define FAKE_LUNDSTROM 1
 
 
 
@@ -48,6 +51,8 @@ char* invokeLundstrom(int nNodes, int nCores, char * memory, int datasize,  char
 	printf("cmd = %s\n", cmd);
 
 	_run(mvCmd);
+
+
 	return _run(cmd);
 }
 
@@ -121,8 +126,8 @@ case UP:
 void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, char *appId, int *R, int *bound, int *Rnew)
 {
 
-	int time;
-	int fake = 0;
+	int lundtsromOutput;
+
 	int BTime = 0;
 	int BCores = 0;
 
@@ -130,31 +135,47 @@ void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, cha
 	// mode is a Temporary variable: it says to FakeLjundstrom to take a value greater (0) or lower (1) than D
 
 	*bound = nCores;
-	//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
-	time = atoi(fakeLundstrom(mode, fake++, nNodes, nCores, "8G", datasetSize, appId));
-	*R = time;
+	//
+#ifdef FAKE_LUNDSTROM
+	int fake = 0;
+	lundtsromOutput = atoi(fakeLundstrom(mode, fake++, nNodes, nCores, "8G", datasetSize, appId));
+#else
+	lundtsromOutput = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
+#endif
+	*R = lundtsromOutput;
 
-	//printf("INIZIO R %d D %d\n", time, deadline);
-	if (time > deadline)
-	while (time > deadline)
+	printf("INIZIO R %d D %d\n", lundtsromOutput, deadline);
+	if (lundtsromOutput > deadline)
+	while (lundtsromOutput > deadline)
 	{
 
-		BTime = time;
+		BTime = lundtsromOutput;
 		//printf("(up) time = %d Rnew =%d\n", time, BTime);
 		nCores = nCores + STEP;
-		time = atoi(fakeLundstrom(UP, fake++, nNodes, nCores, "8G", datasetSize, appId));
+#ifdef FAKE_LUNDSTROM
+		lundtsromOutput = atoi(fakeLundstrom(UP, fake++, nNodes, nCores, "8G", datasetSize, appId));
+#else
+		lundtsromOutput = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
+#endif
 		BCores = nCores;
 
 	}
 	else
-		while (time < deadline)
+		while (lundtsromOutput < deadline)
 		{
-
+				if (nCores == 0)
+				{
+					printf("nCOres is currently 0. Cannot invoke Lundstrom\n");
+					exit(-1);
+				}
 				nCores = nCores - STEP;
-				//time = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
-				time = atoi(fakeLundstrom(DOWN, fake++, nNodes, nCores, "8G", datasetSize, appId));
+#ifdef FAKE_LUNDSTROM
+				lundtsromOutput = atoi(fakeLundstrom(DOWN, fake++, nNodes, nCores, "8G", datasetSize, appId));
+#else
+				lundtsromOutput = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
+#endif
 				BCores = nCores;
-				BTime = time;
+				BTime = lundtsromOutput;
 				//printf("(down) time = %d Rnew =%d\n", time, BTime);
 		}
 
@@ -233,13 +254,12 @@ void findBound(MYSQL *conn, char *db, int mode,  int deadline, sList *pointer)
 {
 
 
-	int nNodes = 6; // Temporary value
-	int nCores;
+	int nNodes = 1; // Temporary value
+	int nCores =1;// Temporary value
 
 
 	// Temporary value
-	if (strcmp(pointer->app_id, "Q26") == 0) nCores = 10;
-	else nCores = 12;
+
 	/* Retrieve nCores from the DB
 	 *
 	 *
@@ -279,7 +299,7 @@ void localSearch(sList * application_i)
 
 
 	printf("\n\nLocalsearch\n");
-//for (int i = 0; i < MAX_ITERATIONS; i++)
+for (int i = 0; i < MAX_ITERATIONS; i++)
 	while (application_i != NULL)
 	{
 		application_j = first;
@@ -402,11 +422,14 @@ void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, do
 	           2) New Lundstrom value (Rnew)
 	        */
 
+#ifdef FAKE_LUNDSTROM
 	        if (strcmp(current->app_id, "Q26") == 0) findBound(conn, parseConfigurationFile("OptDB_dbName", XML), DOWN, D, current);
 	        else findBound(conn, parseConfigurationFile("OptDB_dbName", XML), UP, D, current);
+#else
+	        findBound(conn, parseConfigurationFile("OptDB_dbName", XML), UP, D, current);
 	        //printf("%d %d %d\n", current->R, current->Rnew, current->bound);
 	        current->mode = R_ALGORITHM;
-
+#endif
 
 	        current = current->next;
 	        rows++;
