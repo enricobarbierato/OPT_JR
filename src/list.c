@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+
 
 #include "list.h"
+#include "common.h"
 
 
 /*
@@ -58,7 +61,7 @@ void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, d
 
 	  /* Initialize the parameter that will be calculated later */
 		 new->R = 0;
-		 new->Rnew = 0;
+
 		 new->bound = 0;
 
 		 new->next = NULL;
@@ -95,9 +98,27 @@ void readList(sList *pointer)
 void printRow(sList *pointer)
 {
 
-    printf("app_id = %s  w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf \n V = %lf v = %lf D = %d R = %d Rnew = %d bound = %d nu = %lf cores = %d newCores = %d swapped with %s DELTA = %lf\n\n ",
-    		pointer->app_id, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D, pointer->R, pointer->Rnew, pointer->bound, pointer->nu,
-			pointer->cores, pointer->newCores, pointer->app_id_j, pointer->delta_fo);
+    printf("app_id = %s  w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf \n V = %lf v = %lf D = %d R = %d "
+    		" bound = %lf nu = %lf currentcores = %lf nCores = %lf  DELTA = %lf\n\n ",
+    		pointer->app_id, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D, pointer->R, pointer->bound, pointer->nu,
+			pointer->currentCores, pointer->nCores,  pointer->delta_fo);
+}
+
+void commitAssignment(sList *pointer, char *appId,  double DELTA)
+{
+
+	while (pointer != NULL)
+		if (strcmp(pointer->app_id, appId) == 0) break;
+		else pointer = pointer->next;
+
+	if (pointer == NULL)
+	{
+		printf("Application %s not found in the list\n", appId);
+		exit(-1);
+	}
+
+	pointer->currentCores = pointer->currentCores + DELTA*pointer->V;
+
 }
 
 
@@ -137,4 +158,157 @@ sList * returnARow(sList ** first )
 
 	return(next);
 }
+
+
+/*
+ * 		Name:					freeAuxList
+ * 		Input parameters:		sAux *pointer
+ * 		Output parameters:		Pointer to the first application
+ * 		Description:			It releases the allocated memory for the list
+ *
+ */
+void freeAuxList(sAux * pointer)
+{
+	sAux * next;
+
+	while (pointer != NULL)
+	    {
+	       next = pointer;
+	       pointer = pointer->next;
+	       if (next != NULL) free(next);
+	    }
+}
+
+
+/*
+ * 		Name:					findMinDelta
+ * 		Input parameters:		sAux *pointer
+ * 		Output parameters:		Minimum Delta
+ * 		Description:			It retrieves the minimum delta
+ *
+ */
+sAux * findMinDelta(sAux * pointer)
+{
+	int min = INT_MAX;
+	sAux *minAux = NULL;
+
+	if (pointer == NULL)
+	{
+		printf("pointer to auxiliary struct is null in findMinDelta\n");
+		exit(-1);
+	}
+	while (pointer != NULL)
+	{
+		if (pointer->deltaFO < min)
+			{
+				min = pointer->deltaFO;
+				minAux = pointer;
+			}
+		pointer = pointer->next;
+	}
+	return minAux;
+}
+/*
+ *
+ */
+int checkTotalCores(sList * pointer, double N)
+{
+	double tot = 0;
+
+	while (pointer!= NULL)
+	{
+		tot = tot + pointer->currentCores;
+		pointer = pointer->next;
+	}
+
+	return doubleCompare(tot, N) == 0;
+}
+
+
+
+
+/*
+ * 		Name:					addAuxParameters
+ * 		Input parameters:		sAux ** first, sAux ** current,  char * app_id1, char * app_id2, int contr1, int contr2, double delta
+ * 		Output parameters:		Updated pointers to the first and current element of the list
+ * 		Description:			This function adds all the information regarding the localSearch deltafo calculation
+ *
+ */
+void addAuxParameters(sAux ** first, sAux ** current,  char * app_id1, char * app_id2, int contr1, int contr2, double delta, double delta_i, double delta_j)
+{
+
+
+	  sAux *new = (sAux*) malloc(sizeof(sAux));
+	  if (new == NULL)
+	  {
+		  printf("addAuxParameters: Fatal Error: malloc failure\n");
+		  exit(-1);
+	  }
+
+
+	  /*
+	   * Applications
+	   */
+	  new->app1 = (char *)malloc(1024);
+	  if (new->app1 == NULL)
+	  {
+	  	  	    printf("addAuxParameters (char *): malloc failure\n");
+	  	  	    exit(-1);
+	  }
+	  strcpy(new->app1, app_id1);
+
+	  new->app2 = (char *)malloc(1024);
+	  if (new->app2 == NULL)
+	  {
+	  	  	printf("addAuxParameters (char *): malloc failure\n");
+	  	  	exit(-1);
+	  }
+	  strcpy(new->app2, app_id2);
+
+	  new->newCoreAssignment1 = contr1;
+	  new->newCoreAssignment2 = contr2;
+	  new->deltaFO = delta;
+	  new->delta_i = delta_i;
+	  new->delta_j = delta_j;
+	  new->next = NULL;
+
+	  if (*first == NULL) *first = new;
+	  else (*current)->next = new;
+	  *current = new;
+}
+
+
+/*
+ * 		Name:					readAuxList
+ * 		Input parameters:		sAux *pointer
+ * 		Output parameters:		Pointer to the first application
+ * 		Description:			This function prints the information about all the applications in the list. It is used for debug only.
+ *
+ */
+
+
+void readAuxList(sAux *pointer)
+{
+	printf("\n\nAuxiliary list content:\n");
+
+
+	while (pointer!=NULL)
+	{
+		printAuxRow(pointer);
+		//if (pointer->previous!=NULL) printf("(prev. %lf) ", pointer->previous->T);
+		pointer = pointer->next;
+	}
+	printf("\n");
+}
+
+void printAuxRow(sAux *pointer)
+{
+
+    printf("app_id1 = %s  app_id2 = %s newCoresAssignment1 = %d newCoresAssignment2 = %d Totdelta = %lf delta1 = %lf delta2 = %lf\n\n ",
+    		pointer->app1, pointer->app2, pointer->newCoreAssignment1, pointer->newCoreAssignment2,
+			pointer->deltaFO, pointer->delta_i, pointer->delta_j);
+}
+
+
+
 

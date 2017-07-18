@@ -163,14 +163,16 @@ int main(int argc, char **argv)
      nu_1 = N/(1 + tot);
 
     /*
-     * Calculate nu_i (for other application different than the first),
-     * store each value in a db table
-     * invoke localsearch for any other application
+     * For each eapplication:
+     * -	Calculate nu_i (for other application different than the first),
+     * -	Store each value in a db table
+     * -	Find the bound
      */
-
-
     process(conn, argv[1], first, nu_1, w1, csi_1, chi_c_1);
-    localSearch(first);
+
+    /* Invoke localSearch */
+    localSearch(first, N);
+
     readList(first);
 
     /* De-allocate resources and close copnnection */

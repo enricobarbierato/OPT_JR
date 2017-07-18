@@ -27,7 +27,6 @@ struct List
 
 	/* CSV file parameters related to the single application */
 	char * app_id;
-	char *app_id_j;
     double w;					/* Weight application (different from the first) */
     //double w1;					/* Weight first application */
     double chi_0;
@@ -42,30 +41,51 @@ struct List
     int datasetSize;
     double delta_fo;
 
-    float nu;
+    double nu;
 
     /* Calculated values */
-    int bound;
-    int R;
-    int Rnew;
-    int cores;
-    int newCores;
+
+
+
+    double currentCores;		/* Initialized to nu_i */
+    double nCores;				/* Initialized to the value from look-up table */
+    double bound;				/* Bound (number of cores) */
+    int R;						/* Bound (time) */
 
 	struct List *next;
 };
 typedef struct List sList;
 // The element corresponding to the event
 
-
+struct aux
+{
+	char * app1;
+	char * app2;
+	int newCoreAssignment1;
+	int newCoreAssignment2;
+	double deltaFO;
+	double delta_i, delta_j;
+	struct aux *next;
+};
+typedef struct aux sAux;
 /*
  * Function templates
  */
 void freeList(sList * pointer);
 void readList(sList *);
-void searchResult(sResult *, char *);
 void printRow(sList *);
 void freeResultList(sResult * );
 void addParameters(int, sList ** , sList ** ,  char *, double , double ,  double , double , double , double , double , double , int , double , double, char *, int  );
+
+void freeAuxList(sAux * pointer);
+void readAuxList(sAux *);
+void printAuxRow(sAux *);
+void freeAuxList(sAux * );
+void addAuxParameters(sAux ** , sAux ** ,  char * , char * , int , int , double, double, double);
+void commitAssignment(sList *, char *,  double );
+sAux * findMinDelta(sAux * );
+int checkTotalCores(sList * pointer, double N);
+
 sList * returnARow(sList **  );
 void readResult(sResult *);
 

@@ -31,8 +31,8 @@ const int _St = 10;
 const int _Dsz = 11;
 
 void findBound(MYSQL *conn, char *, int, int , sList **);
-void localSearch(sList *);
-void process(MYSQL *, char * , sList *, double, double, double, double);
+void localSearch(sList *, int);
+void process(MYSQL *, char * , sList *, double, double, double, double );
 
 void split (char str[], int *a, int *b);
 int ObjFunctionComponent(sList * );

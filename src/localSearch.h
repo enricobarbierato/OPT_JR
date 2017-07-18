@@ -20,7 +20,7 @@
 #define UP 1
 
 
-void  Bound(int , int , int , int , int , char *,  int *, int *, int *);
+void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, char *appId, int *R, double *bound);
 void process(MYSQL *, char * , sList *, double, double, double, double);
 char* invokeLundstrom(int , int , char * , int ,  char *);
 

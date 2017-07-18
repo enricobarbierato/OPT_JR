@@ -401,7 +401,7 @@ char * _run(char * cmd)
 	FILE *fp;
 	  char *path = (char *)malloc(1024);
 
-	  printf("_run %s\n", cmd);
+	  //printf("_run %s\n", cmd);
 
 	  /* Open the command for reading. */
 	  fp = popen(cmd, "r");
