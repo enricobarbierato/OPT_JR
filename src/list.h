@@ -27,30 +27,25 @@ struct List
 
 	/* CSV file parameters related to the single application */
 	char * app_id;
-    double w;					/* Weight application (different from the first) */
-    //double w1;					/* Weight first application */
+    double w;					/* Weight application  */
     double chi_0;
     double chi_C, chi_c_1;
     double m;
     double M;
     double V;
     double v;
-    int D;
+    double Deadline_d;					/* Deadline */
     double csi, csi_1;
     char * stage;
     int datasetSize;
-    double delta_fo;
-
-    double nu;
 
     /* Calculated values */
 
-
-
-    double currentCores;		/* Initialized to nu_i */
-    double nCores;				/* Initialized to the value from look-up table */
-    double bound;				/* Bound (number of cores) */
-    int R;						/* Bound (time) */
+    double nu_d;
+    double currentCores_d;		/* Initialized to nu_i */
+    double nCores_d;				/* Initialized to the value from look-up table */
+    double bound_d;				/* Bound (number of cores) */
+    double R_d;					/* Bound (time) */
 
 	struct List *next;
 };
@@ -65,6 +60,7 @@ struct aux
 	int newCoreAssignment2;
 	double deltaFO;
 	double delta_i, delta_j;
+
 	struct aux *next;
 };
 typedef struct aux sAux;
@@ -75,7 +71,7 @@ void freeList(sList * pointer);
 void readList(sList *);
 void printRow(sList *);
 void freeResultList(sResult * );
-void addParameters(int, sList ** , sList ** ,  char *, double , double ,  double , double , double , double , double , double , int , double , double, char *, int  );
+void addParameters(int, sList ** , sList ** ,  char *, double , double ,  double , double , double , double , double , double , double , double , double, char *, int  );
 
 void freeAuxList(sAux * pointer);
 void readAuxList(sAux *);

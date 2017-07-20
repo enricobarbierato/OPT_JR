@@ -9,178 +9,152 @@
 #include <string.h>
 #include "localSearch.h"
 
-#define STEP 1
-#define MAX_ITERATIONS 1
+#define STEP 10
+#define MAX_ITERATIONS 100
+#define PREDICTOR DAGSIM
 
-//#define FAKE_LUNDSTROM 1
+
+
 
 
 
 /*
- * 		Name:					invokeLundstrom
+ * 		Name:					invokePredictor
  * 		Input parameters:		int nNodes, int nCores, char * memory, int datasize,  char *appId
- * 		Output parameters:		The output from Lundstrom predictor
- * 		Description:			This function works on one data log folder only, whose path can be found in wsi_config.xml file withe the keyword "FAKE".
+ * 		Output parameters:		The output from Predictor predictor
+ * 		Description:			This function works on one data log folder only, whose path can be found in wsi_config.xml file with the the keyword "FAKE".
  *
  * 								First, the data folder name is changed according to Nodes_Cores convention as for the input parameters,
- * 								the following lines build a command that executes lundstrom tool.
+ * 								the following lines build a command that executes Predictor tool.
  *
  */
 
-char* invokeLundstrom(int nNodes, int nCores, char * memory, int datasize,  char *appId)
+char* invokePredictor(int nNodes, int currentCores, char * memory, int datasize,  char *appId)
 {
-	char parameters[128];
-	char cmd[128];
-	char mvCmd[64];
-	char path[64];
+	char parameters[1024];
+	char cmd[1024];
+	char mvCmd[1024];
+	char path[1024];
+	char lua[1024];
+	char subfolder[1024];
+	char *output = (char *)malloc(1024);
 	/*
 	 * Prepare the data
 	 */
 
-	char dir[16];
+	char dir[1024];
 
+	if (currentCores <= 0)
+	{
+		printf("Fatal Error: Cannot invoke predictor on negative  or zero number of cores: currentCores = %d\n", currentCores);
+		exit(-1);
+	}
+	/* Prepare the folder by renaming the number of cores
+	 This is possible because the variance between the log folders is small*/
 	strcpy(path, parseConfigurationFile("FAKE", 1));
 	strcpy(dir, readFolder(path));
 
-	sprintf(mvCmd, "cd %s;mv %s %d_%d_%s_%d", path, dir, nNodes, nCores, memory, datasize);
-
-	sprintf(parameters, "%d %d %s %d %s", nNodes, nCores, memory, datasize, appId);
-	sprintf(cmd, "cd %s;python run.py %s", parseConfigurationFile("LUNDSTROM_HOME", 1), parameters);
-
-	//printf("mvCmd = %s\n", mvCmd);
-	printf("cmd = %s\n", cmd);
+	sprintf(mvCmd, "cd %s;mv %s %d_%d_%s_%d", path, dir, nNodes, currentCores, memory, datasize);
 
 	_run(mvCmd);
 
-
-	return _run(cmd);
-}
-
-
-
-/*
- * 		Name:					fakeLundstrom
- * 		Input parameters:		int mode, int count, int nNodes, int nCores, char * memory, int datasize,  char *appId
- * 		Output parameters:		simulation of the output produced by Lundstrom predictor
- * 		Description:			According to the "mode" and "count" variables, the function simulates the output Lundstrom using
- * 								hard coded values.
- *
- */
-
-char* fakeLundstrom(int mode, int count, int nNodes, int nCores, char * memory, int datasize,  char *appId)
-{
-	char *time = (char *)malloc(16);
-
-switch(mode)
-{
-case DOWN:
-	switch(count)
+	switch(PREDICTOR)
 	{
-		case 0:
-					strcpy(time, "38000");
-					break;
-			case 1:
-					strcpy(time, "39000");
-					break;
-			case 2:
-					strcpy(time, "40000");
-					break;
-			default:
-					printf("fakeLundstrom out of range parameter (count %d)\n", count);
-					break;
+		case LUNDSTROM:
+			sprintf(parameters, "%d %d %s %d %s", nNodes, currentCores, memory, datasize, appId);
+			sprintf(cmd, "cd %s;python run.py %s", parseConfigurationFile("LUNDSTROM_HOME", 1), parameters);
+			break;
+		case DAGSIM:
+			sprintf(path, "%s/%d_%d_%s_%d/%s/logs", parseConfigurationFile("FAKE", 1), nNodes, currentCores, memory, datasize, appId);
+			strcpy(subfolder, readFolder(path));
+			sprintf(cmd, "ls %s/%s/*.lua", path, subfolder);
+			strcpy(lua, _run(cmd));
+			/* Remove /n from the lua filename */
+
+			lua[strlen(lua)-1] = '\0';
+
+
+			/* Update the number of nodes in the lua file
+			 * calculated as nNodes * nCores
+			 * line=$(cat $LUA$LUA_FILENAME|grep "Nodes = ")
+        		sed -i "s/$line/Nodes = @@nodes@@;/g" $LUA$LUA_FILENAME
+			 *
+			 */
+
+			sprintf(cmd, "line=$(cat %s|grep \"Nodes = \");sed -i \"s/$line/Nodes = %d;/g\" %s", lua, (nNodes*currentCores), lua);
+			 _run(cmd);
+
+			sprintf(cmd, "cd %s;./dagsim.sh %s|head -n1|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
+
+			break;
 	}
-	break;
-case UP:
-	switch(count)
-		{
-		case 0:
-				strcpy(time, "42000");
-				break;
-		case 1:
-				strcpy(time, "41000");
-				break;
-		case 2:
-				strcpy(time, "40000");
-				break;
-		default:
-				printf("fakeLundstrom out of range parameter (count %d)\n", count);
-				break;
 
-		}
-		break;
+
+
+	strcpy(output, _run(cmd));
+	//printf("Cores: %d %s\n", nCores, output);
+
+	return output;
 }
 
-	return time;
-}
+
+
 
 
 /*
  * 		Name:				Bound
- * 		Input parameters:	int mode, int deadline, int nNodes, int nCores, int datasetSize, char *appId,
- * 		Output parameters:	int *R (initial Lundstrom estimate for the given cores, the bound (number of cores), and the time for the determined bound.
- * 		Description:		This function calculates the bound given a certain deadline and number of nodes, cores. Lundstrom method is invoked until an upper bound,
+ * 		Input parameters:	int deadline, int nNodes, int nCores, int datasetSize, char *appId,
+ * 		Output parameters:	int *R (initial Predictor estimate for the given cores, the bound (number of cores), and the time for the determined bound.
+ * 		Description:		This function calculates the bound given a certain deadline and number of nodes, cores. Predictor method is invoked until an upper bound,
  * 							consisting of the number of nodes, is found (once that the time calculated by the predictor, a rollback is performed to
  * 							return the last "safe" number of core and time.
  *
  */
-void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, char *appId, int *R, double *bound)
+void  Bound(int deadline, int nNodes, int nCores, int datasetSize, char *appId, double *R, double *bound)
 {
 
-	int lundtsromOutput;
+	int predictorOutput;
 
 	int BTime = 0;
 	int BCores = 0;
-	*bound = nCores;
 
 
+	predictorOutput = atoi(invokePredictor( nNodes, nCores, "8G", datasetSize, appId));
 
+	BTime = predictorOutput;
 
-	//
-#ifdef FAKE_LUNDSTROM
-	// mode is a Temporary variable: it says to FakeLundstrom to take a value greater (0) or lower (1) than D
-	int fake = 0;
-	lundtsromOutput = atoi(fakeLundstrom(mode, fake++, nNodes, nCores, "8G", datasetSize, appId));
-#else
-	lundtsromOutput = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
-#endif
-	BTime = lundtsromOutput;
-
-	printf("Calculate Bound: R %d D %d\n", lundtsromOutput, deadline);
-	if (lundtsromOutput > deadline)
-	while (lundtsromOutput > deadline)
+	//printf("Calculate Bound for %s: R %d D %d\n", appId, predictorOutput, deadline);
+	if (predictorOutput > deadline)
+	while (predictorOutput > deadline)
 	{
 		BCores = nCores;
-		BTime = lundtsromOutput;
+		BTime = predictorOutput;
 		//printf("(up) time = %d Rnew =%d\n", time, BTime);
 		nCores = nCores + STEP;
-#ifdef FAKE_LUNDSTROM
-		lundtsromOutput = atoi(fakeLundstrom(UP, fake++, nNodes, nCores, "8G", datasetSize, appId));
-#else
-		lundtsromOutput = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
-#endif
+
+		predictorOutput = atoi(invokePredictor( nNodes, nCores, "8G", datasetSize, appId));
+
 	}
 	else
-		while (lundtsromOutput < deadline)
+		while (predictorOutput < deadline)
 		{
+				BCores = nCores;
+				BTime = predictorOutput;
 				nCores = nCores - STEP;
 				if (nCores <= 0)
 				{
-					printf("nCOres is currently 0. Cannot invoke Lundstrom\n");
+					printf("nCOres is currently 0. Cannot invoke Predictor\n");
 					exit(-1);
 				}
-#ifdef FAKE_LUNDSTROM
-				lundtsromOutput = atoi(fakeLundstrom(DOWN, fake++, nNodes, nCores, "8G", datasetSize, appId));
-#else
-				lundtsromOutput = atoi(invokeLundstrom( nNodes, nCores, "8G", datasetSize, appId));
-#endif
-				BCores = nCores;
-				BTime = lundtsromOutput;
+				predictorOutput = atoi(invokePredictor( nNodes, nCores, "8G", datasetSize, appId));
+
+
 				//printf("(down) time = %d Rnew =%d\n", time, BTime);
 		}
 
 	*R = BTime;
 	*bound = BCores;
-	printf("D = %d R = %d  bound = %lf\n", deadline, *R, *bound);
+	printf("D = %d R = %lf  bound = %lf\n", deadline, *R, *bound);
 
 
 }
@@ -213,14 +187,11 @@ int ObjFunctionComponent(sList * pointer)
 	switch(pointer->mode)
 	{
 		case R_ALGORITHM:
-			printf("R Algorithm\n");
-#ifdef FAKE_LUNDSTROM
-				pointer->R = atoi(fakeLundstrom(1, 0, 2, pointer->currentCores, "8G", pointer->datasetSize, pointer->app_id));
-#else
-				pointer->R = atoi(invokeLundstrom( 1, pointer->currentCores, "8G", pointer->datasetSize, pointer->app_id));
-#endif
-				if (pointer->R > pointer->D)
-					output = pointer->w * (pointer->R - pointer->D);
+
+				pointer->R_d = atof(invokePredictor( 1, (int)pointer->currentCores_d, "8G", pointer->datasetSize, pointer->app_id));
+				printf("app %s currentCores_d %d  R %lf\n", pointer->app_id, (int)pointer->currentCores_d, pointer->R_d);
+				if (pointer->R_d > pointer->Deadline_d)
+					output = pointer->w * (pointer->R_d - pointer->Deadline_d);
 				else output = 0;
 			break;
 			/*
@@ -241,7 +212,7 @@ int ObjFunctionComponent(sList * pointer)
 			exit(-1);
 			break;
 	}
-printf("FO output: %lf\n", output);
+printf("App %s FO output: %lf\n", pointer->app_id, output);
 
 
 	return output;
@@ -256,34 +227,27 @@ printf("FO output: %lf\n", output);
  * 								Secondly, it invokes the Bound function.
  *
  */
-void findBound(MYSQL *conn, char *db, int mode,  int deadline, sList *pointer)
+void findBound(MYSQL *conn, char *db,   int deadline, sList *pointer)
 {
 
+	char statement[256];
+	int nNodes_d = 1; // Temporary value
 
-	int nNodes = 1; // Temporary value
-	int nCores =1;// Temporary value
-
-printf("Simulating access to look table to retrieve initial value of nCores\n");
-	// Temporary value
 
 	/* Retrieve nCores from the DB
 	 *
-	 *
+	 **/
         sprintf(statement,
                         "select num_cores_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%d;"
-                        , db, appId, datasetSize, deadline);
+                        , db, pointer->app_id, pointer->datasetSize, deadline);
 
-        nCores = executeSQL(conn, statement);
-	 *
-	 */
-	pointer->currentCores = pointer->nu;
-	pointer->nCores = nCores;
+        pointer->nCores_d = executeSQL(conn, statement);
 
-	Bound(mode, deadline, nNodes, nCores,
+	Bound(deadline, nNodes_d, pointer->nCores_d,
 			pointer->datasetSize,
 			pointer->app_id,
-			&(pointer->R),
-			&(pointer->bound)
+			&(pointer->R_d),
+			&(pointer->bound_d)
 	);
 
 
@@ -299,13 +263,13 @@ printf("Simulating access to look table to retrieve initial value of nCores\n");
  */
 void localSearch(sList * application_i, int n)
 {
-	sList * application_j, *first = application_i;
+	sList * application_j, *first_i = application_i;
 	sAux *firstAux = NULL, *currentAux = NULL;
 	int nCoreMov;
 	double DELTA_i, DELTA_j;
 	double DELTA_fo_App_i, DELTA_fo_App_j;
 	sAux * minAux;
-	int newTotal;
+	double prev_d;
 
 
 	printf("\n\nLocalsearch\n");
@@ -314,50 +278,54 @@ void localSearch(sList * application_i, int n)
 for (int i = 0; i < MAX_ITERATIONS; i++){
 	while (application_i != NULL)
 	{
-		application_j = first;
+		application_j = first_i;
 		while (application_j != NULL)
 		{
 			if (strcmp(application_i->app_id, application_j->app_id)!= 0)
 			{
 				printf("Comparing %s with %s\n", application_i->app_id, application_j->app_id);
 				printf("-----------------------------------------------\n");
-				printRow(application_i);
+
 
 				nCoreMov = max(application_i->V, application_j->V);
 
-				DELTA_i = nCoreMov/application_i->V;
-				DELTA_j = nCoreMov/application_j->V;
+				DELTA_i = nCoreMov/application_i->V;printf("app %s DELTA_i %lf\n", application_i->app_id, DELTA_i);
+				DELTA_j = nCoreMov/application_j->V;printf("app %s DELTA_j %lf\n", application_j->app_id, DELTA_j);
 
 				/* Change the currentCores, but rollback later */
-				application_i->currentCores = application_i->currentCores + DELTA_i*application_i->V;
-				application_j->currentCores = application_j->currentCores - DELTA_j*application_j->V;
+				printf("app %s currentCores %d\n", application_i->app_id, (int)application_i->currentCores_d);
+				printf("app %s currentCores %d\n", application_j->app_id, (int)application_j->currentCores_d);
+				application_i->currentCores_d = application_i->currentCores_d + DELTA_i*application_i->V;
+				application_j->currentCores_d = application_j->currentCores_d - DELTA_j*application_j->V;
+				printf("Dopo mossa: app %s currentCores %d\n", application_i->app_id, (int)application_i->currentCores_d);
+				printf("Dopo mossa: app %s currentCores %d\n", application_j->app_id, (int)application_j->currentCores_d);
+
 				/* Set up the algorithm for FO evaluation */
 				application_i->mode= R_ALGORITHM;application_j->mode= R_ALGORITHM;
 
 				/*
 				 * Call object function evaluation
 				 */
+
 				DELTA_fo_App_i = ObjFunctionComponent(application_i);
 				DELTA_fo_App_j = ObjFunctionComponent(application_j);
 
-
-				application_i->delta_fo = DELTA_fo_App_i + DELTA_fo_App_j;
-
 				// DANILO Store delta complessivo e numeri core in lista di appoggio -> ENRICO DONE
+
 				addAuxParameters(&firstAux,
 								&currentAux,
 								application_i->app_id,
 								application_j->app_id,
-								application_i->currentCores, /* Cores application_i */
-								application_j->currentCores, /* Cores application_j */
-								DELTA_fo_App_i + DELTA_fo_App_j, /* delta (total) */
+								application_i->currentCores_d,
+								application_j->currentCores_d,
+								DELTA_fo_App_i + DELTA_fo_App_j,
 								DELTA_i,
 								DELTA_j
 								);
 
 				// DANILO ripristina numero di core precedenti -> ENRICO DONE
-				application_i->currentCores = application_i->currentCores - DELTA_i*application_i->V;
-				application_j->currentCores = application_j->currentCores + DELTA_j*application_j->V;
+				application_i->currentCores_d = application_i->currentCores_d - DELTA_i*application_i->V;
+				application_j->currentCores_d = application_j->currentCores_d + DELTA_j*application_j->V;
 			}
 			application_j = application_j->next;
 		}
@@ -365,34 +333,57 @@ for (int i = 0; i < MAX_ITERATIONS; i++){
 		application_i = application_i->next;
 	}
 
-	readAuxList(firstAux);exit(1);
+	readAuxList(firstAux);
+
 	// DANILO accedo alla lista di appoggio cercando delta fo minore
 	minAux = findMinDelta(firstAux);
 	if (minAux == NULL)
 	{
-		printf("findMinDelta cannot be null\n");
+		printf("findMinDelta cannot be null\n");// Se non c'è minimo vuol dire che non c'è migliorante usciamo dal ciclo
 		exit(-1);
 	}
+	printf("FO complessivo alla iterazione %d = %lf\n", i, minAux->deltaFO);
 
 	// DANILO effettuo assegnamento del numero di core alle applicazioni
-	commitAssignment(first, minAux->app1, minAux->delta_i); // application i
-	commitAssignment(first, minAux->app2, -minAux->delta_j); // application j
+	commitAssignment(first_i, minAux->app1, minAux->delta_i); // application i
+	commitAssignment(first_i, minAux->app2, -minAux->delta_j); // application j
 
 
 
-	// DANILO faccio somma di numero di core assegnati e confronto con N
-	/* Questo test non puo' funzionare con i dati che uso attualmente per debug */
-	newTotal = checkTotalCores(first, n);
-	if (newTotal != 0)
-	{
-			printf("Total cores (new assignment) %d not equal to original N (%d)\n",newTotal, n );
 
-	}
 
+	printf("Destroy Aux list\n");
 	// DESTROY Auxiliary list and prepare it for a new run
 	freeAuxList(firstAux);
 	firstAux = NULL;
 	currentAux = NULL;
+
+	/* Prepare applications list for a new run */
+	application_i = first_i;
+
+	// DANILO faccio somma di numero di core assegnati e confronto con N
+
+		if (!checkTotalCores(first_i, n))
+		{
+				printf("Total cores (new assignment) not equal to original N (%d)\n", n );
+
+		}
+	/*
+		 * Check if the improvement was significant or not
+		 */
+
+		if ( i > 0)
+		{
+				printf("Iterazioni successive\n");
+				printf("prev_d %lf current FO %lf DELTA =%lf\n",prev_d, minAux->deltaFO, minAux->deltaFO - prev_d);
+				if (doubleCompare(prev_d, minAux->deltaFO) <= 0 && prev_d != 0)
+					{
+						printf("STOP: local minimum? at iteration %d\n", i);
+						break;
+					}
+		}
+		prev_d = minAux->deltaFO;
+		printf("****************************************************\n");
 }
 
 
@@ -417,12 +408,12 @@ void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, do
 	double m;
 	double v;
 	double V;
-	double D;
+	double Deadline_d;
 	int rows = 1;
 	char * app_id;
 	double w;
 
-	double indexF;
+	double index_d;
 	double csi;
 
 
@@ -433,7 +424,7 @@ void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, do
 	          exit(-1);
     }
 
-	printf("Calculates the indices and update the list\n");
+
 
 	while (current != NULL)
 	    {
@@ -447,15 +438,17 @@ void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, do
 	        m = 	current->m;
 	        V = 	current->V;
 	        v = 	current->v;
-	        D = 	current->D;
+	        Deadline_d = 	current->Deadline_d;
 
 	        csi = getCsi(M/m, V/v);
 
-	        if (rows == 1) indexF = nu_1; else indexF = nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
-	        current->nu = indexF;
+	        if (rows == 1) index_d = nu_1; else index_d = nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
+	        current->nu_d = index_d;
+	        current->currentCores_d = index_d;
+
 
 	        /* Update the db table */
-	        DBinsertrow(conn, uniqueFilename, app_id, indexF);
+	        //DBinsertrow(conn, uniqueFilename, app_id, indexF);
 
 	        /*
 	           Calculate
@@ -463,14 +456,9 @@ void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, do
 	           2) the bound (time)
 	        */
 
-#ifdef FAKE_LUNDSTROM
-	        if (strcmp(current->app_id, "Q26") == 0) findBound(conn, parseConfigurationFile("OptDB_dbName", XML), DOWN, D, current);
-	        else findBound(conn, parseConfigurationFile("OptDB_dbName", XML), UP, D, current);
-#else
-	        findBound(conn, parseConfigurationFile("OptDB_dbName", XML), UP, D, current);
+	        findBound(conn, parseConfigurationFile("OptDB_dbName", XML), Deadline_d, current);
 
-#endif
-
+	        printRow(current);
 	        current = current->next;
 	        rows++;
 	     }

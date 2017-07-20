@@ -35,7 +35,7 @@ char * readFolder(char *  path)
 
 	    if (dr == NULL)
 	    {
-	        printf("readFolder failure" );
+	        printf("readFolder failure (%s)", path );
 	        exit(-1);
 	    }
 
@@ -190,7 +190,7 @@ char * getfield(char* line, int num)
  *
  */
 
-double doubleCompare(double a, double b)
+int doubleCompare(double a, double b)
 {
 
 
@@ -396,29 +396,31 @@ struct Best bestMatch(char * path, int nValue)
  * 		Description:			This function executes a command ("cmd")
  *
  */
-char * _run(char * cmd)
+char *_run(char * cmd)
 {
-	FILE *fp;
-	  char *path = (char *)malloc(1024);
+	int BUFSIZE = 1024;
 
-	  //printf("_run %s\n", cmd);
+	char *buf = (char *)malloc(BUFSIZE);
+	    FILE *fp;
 
-	  /* Open the command for reading. */
-	  fp = popen(cmd, "r");
-	  if (fp == NULL) {
-	    printf("Failed to run command\n" );
-	    exit(1);
-	  }
+	    //printf("Executing %s\n", cmd);
+	    if ((fp = popen(cmd, "r")) == NULL) {
+	        printf("Could not open pipe\n");
+	        return NULL;
+	    }
 
-	  /* Read the output a line at a time - output it. */
-	  while (fgets(path, sizeof(path)-1, fp) != NULL) {
-	    printf("output for %s: %s\n",cmd,  path);break;
-	  }
+	    while (fgets(buf, BUFSIZE, fp) != NULL) {
 
-	  /* close */
-	  pclose(fp);
+	        //printf("OUTPUT: %s", buf);
 
-	  return path;
+	    }
+
+	    if(pclose(fp))  {
+	        printf("Command %s not found or exited with error status\n", cmd);
+	        return NULL;
+	    }
+
+	  return buf;
 }
 
 

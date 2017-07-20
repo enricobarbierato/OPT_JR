@@ -16,7 +16,7 @@
  * 		Description:			This function adds all the information regarding an application into a list
  *
  */
-void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, double w, double chi_0, double chi_C, double chi_c_1, double m, double M, double V, double v, int D, double csi,
+void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, double w, double chi_0, double chi_C, double chi_c_1, double m, double M, double V, double v, double Deadline_d, double csi,
 		double csi_1, char * StageId, int datasetSize)
 {
 
@@ -47,7 +47,7 @@ void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, d
 		    new->M = M;
 		    new->V = V;
 		    new->v = v;
-		    new->D = D;
+		    new->Deadline_d = Deadline_d;
 		    new->csi = csi;
 		    new->csi_1 = csi_1;
 		    new->stage = (char *)malloc(1024);
@@ -60,9 +60,9 @@ void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, d
 		    		    new->datasetSize = datasetSize;
 
 	  /* Initialize the parameter that will be calculated later */
-		 new->R = 0;
+		 new->R_d = 0;
 
-		 new->bound = 0;
+		 new->bound_d = 0;
 
 		 new->next = NULL;
 
@@ -97,11 +97,25 @@ void readList(sList *pointer)
 
 void printRow(sList *pointer)
 {
-
-    printf("app_id = %s  w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf \n V = %lf v = %lf D = %d R = %d "
-    		" bound = %lf nu = %lf currentcores = %lf nCores = %lf  DELTA = %lf\n\n ",
-    		pointer->app_id, pointer->w,  pointer->chi_0, pointer->chi_c_1, pointer->m, pointer->M, pointer->V, pointer->v, pointer->D, pointer->R, pointer->bound, pointer->nu,
-			pointer->currentCores, pointer->nCores,  pointer->delta_fo);
+/*
+    printf("app_id = %s  w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf \n V = %lf v = %lf D = %d R = %lf "
+    		" bound = %lf nu = %lf currentcores = %lf nCores = %lf \n\n ",
+    		pointer->app_id,
+			pointer->w,
+			pointer->chi_0,
+			pointer->chi_c_1,
+			pointer->m,
+			pointer->M,
+			pointer->V,
+			pointer->v,
+			pointer->Deadline_d,
+			pointer->R_d,
+			pointer->bound_d,
+			pointer->nu_d,
+			pointer->currentCores_d,
+			pointer->nCores_d);
+			*/
+	printf("app_id %s  nu %d currentcores = %d nCores = %d \n\n", pointer->app_id, (int)pointer->nu_d, (int)pointer->currentCores_d, (int)pointer->nCores_d);
 }
 
 void commitAssignment(sList *pointer, char *appId,  double DELTA)
@@ -116,9 +130,17 @@ void commitAssignment(sList *pointer, char *appId,  double DELTA)
 		printf("Application %s not found in the list\n", appId);
 		exit(-1);
 	}
+	printf("Committing %s currentCores = %d\n", pointer->app_id, (int)pointer->currentCores_d);
+	pointer->currentCores_d = pointer->currentCores_d + DELTA*pointer->V;
 
-	pointer->currentCores = pointer->currentCores + DELTA*pointer->V;
-
+	/* Check that currentCores_d is positive
+	 *
+	 */
+	if (pointer->currentCores_d < 0)
+	{
+		printf("commitAssignment: commit caused negative core numbers\n");
+		exit(-1);
+	}
 }
 
 
@@ -217,10 +239,10 @@ int checkTotalCores(sList * pointer, double N)
 
 	while (pointer!= NULL)
 	{
-		tot = tot + pointer->currentCores;
+		tot = tot + pointer->currentCores_d;
 		pointer = pointer->next;
 	}
-
+	printf("TOTALE CORES :%d\n", (int)tot);
 	return doubleCompare(tot, N) == 0;
 }
 
@@ -236,7 +258,11 @@ int checkTotalCores(sList * pointer, double N)
  */
 void addAuxParameters(sAux ** first, sAux ** current,  char * app_id1, char * app_id2, int contr1, int contr2, double delta, double delta_i, double delta_j)
 {
-
+	if (contr1 < 0 || contr2 < 0)
+	{
+		printf("addAuxParameters: number of cores cannot < 0\n");
+		exit(-1);
+	}
 
 	  sAux *new = (sAux*) malloc(sizeof(sAux));
 	  if (new == NULL)
@@ -295,7 +321,7 @@ void readAuxList(sAux *pointer)
 	while (pointer!=NULL)
 	{
 		printAuxRow(pointer);
-		//if (pointer->previous!=NULL) printf("(prev. %lf) ", pointer->previous->T);
+
 		pointer = pointer->next;
 	}
 	printf("\n");
@@ -305,7 +331,7 @@ void printAuxRow(sAux *pointer)
 {
 
     printf("app_id1 = %s  app_id2 = %s newCoresAssignment1 = %d newCoresAssignment2 = %d Totdelta = %lf delta1 = %lf delta2 = %lf\n\n ",
-    		pointer->app1, pointer->app2, pointer->newCoreAssignment1, pointer->newCoreAssignment2,
+    		pointer->app1, pointer->app2, (int)pointer->newCoreAssignment1, (int)pointer->newCoreAssignment2,
 			pointer->deltaFO, pointer->delta_i, pointer->delta_j);
 }
 

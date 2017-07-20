@@ -30,7 +30,7 @@ const int _D = 9;
 const int _St = 10;
 const int _Dsz = 11;
 
-void findBound(MYSQL *conn, char *, int, int , sList **);
+void findBound(MYSQL *conn, char *,  int , sList **);
 void localSearch(sList *, int);
 void process(MYSQL *, char * , sList *, double, double, double, double );
 

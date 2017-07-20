@@ -19,8 +19,11 @@
 #define DOWN 0
 #define UP 1
 
+#define LUNDSTROM 0
+#define DAGSIM 1
 
-void  Bound(int mode, int deadline, int nNodes, int nCores, int datasetSize, char *appId, int *R, double *bound);
+
+void  Bound(int deadline, int nNodes, int nCores, int datasetSize, char *appId, double *R, double *bound);
 void process(MYSQL *, char * , sList *, double, double, double, double);
 char* invokeLundstrom(int , int , char * , int ,  char *);
 

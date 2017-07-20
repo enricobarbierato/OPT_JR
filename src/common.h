@@ -35,7 +35,7 @@ struct Best
 /* Templates */
 
 double max(double, double);
-double doubleCompare(double, double);
+int doubleCompare(double, double);
 double getCsi(double , double );
 char * parseConfigurationFile(char *, int);
 struct Best bestMatch(char *, int);
