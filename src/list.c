@@ -130,17 +130,21 @@ void commitAssignment(sList *pointer, char *appId,  double DELTA)
 		printf("Application %s not found in the list\n", appId);
 		exit(-1);
 	}
-	printf("Committing %s currentCores = %d\n", pointer->app_id, (int)pointer->currentCores_d);
-	pointer->currentCores_d = pointer->currentCores_d + DELTA*pointer->V;
 
-	/* Check that currentCores_d is positive
-	 *
-	 */
-	if (pointer->currentCores_d < 0)
+	/* Check that currentCores_d is positive: ignore if otherwise
+			 *
+	*/
+	if ((int)pointer->currentCores_d + DELTA*pointer->V <= 0)
 	{
-		printf("commitAssignment: commit caused negative core numbers\n");
-		exit(-1);
+		printf("Negative or zero value for currentCores was not committed\n");
+		return;
 	}
+
+
+	pointer->currentCores_d = pointer->currentCores_d + DELTA*pointer->V;
+	printf("Committed %s currentCores = %d\n", pointer->app_id, (int)pointer->currentCores_d);
+
+
 }
 
 
@@ -239,10 +243,11 @@ int checkTotalCores(sList * pointer, double N)
 
 	while (pointer!= NULL)
 	{
+		printf("app %s currentCores %d", pointer->app_id, (int)pointer->currentCores_d);
 		tot = tot + pointer->currentCores_d;
 		pointer = pointer->next;
 	}
-	printf("TOTALE CORES :%d\n", (int)tot);
+	printf("\nTOTALE CORES :%d\n", (int)tot);
 	return doubleCompare(tot, N) == 0;
 }
 
@@ -260,8 +265,8 @@ void addAuxParameters(sAux ** first, sAux ** current,  char * app_id1, char * ap
 {
 	if (contr1 < 0 || contr2 < 0)
 	{
-		printf("addAuxParameters: number of cores cannot < 0\n");
-		exit(-1);
+		printf("addAuxParameters: an application has a number of core <= 0\n");
+		return;
 	}
 
 	  sAux *new = (sAux*) malloc(sizeof(sAux));

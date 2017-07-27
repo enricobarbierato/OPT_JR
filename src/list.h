@@ -43,9 +43,13 @@ struct List
 
     double nu_d;
     double currentCores_d;		/* Initialized to nu_i */
-    double nCores_d;				/* Initialized to the value from look-up table */
+    double nCores_d;			/* Initialized to the value from look-up table */
     double bound_d;				/* Bound (number of cores) */
-    double R_d;					/* Bound (time) */
+    double R_d;					/* Value of R as per the predictor */
+    double R_bound_d;			/* Bound (R) */
+    int baseFO;					/* base FO value (used to calculate the delta) */
+    float alpha;				/* First parameter for Hyperbolic interpolation */
+    float beta;					/* Second parameter for Hyperbolic interpolation */
 
 	struct List *next;
 };

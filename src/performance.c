@@ -170,6 +170,7 @@ int main(int argc, char **argv)
      */
     process(conn, argv[1], first, nu_1, w1, csi_1, chi_c_1);
 
+
     /* Invoke localSearch */
     localSearch(first, N);
 

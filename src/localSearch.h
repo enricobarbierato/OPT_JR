@@ -23,9 +23,10 @@
 #define DAGSIM 1
 
 
-void  Bound(int deadline, int nNodes, int nCores, int datasetSize, char *appId, double *R, double *bound);
+void  Bound(int deadline, int nNodes, int nCores, int datasetSize, char *appId, double *R, double *bound, int);
 void process(MYSQL *, char * , sList *, double, double, double, double);
 char* invokeLundstrom(int , int , char * , int ,  char *);
+void initialize(sList *);
 
 char *readFolder(char *);
 #endif /* SRC_LOCALSEARCH_H_ */
