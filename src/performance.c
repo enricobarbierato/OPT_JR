@@ -15,9 +15,70 @@
 #include "list.h"
 #include "performance.h"
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 
 
+void fixInitialSolution(sList *applications, int N)
+{
+	sList * first;
+	double allocatedCores;
+	sListPointers * first_LP = NULL,  * current_LP = NULL;
+	int loopExit = 0;
+	sListPointers *auxPointer;
+	int residualCores;
+
+
+	allocatedCores = 0; // TODO To be changed into INT
+
+	first = applications;
+
+	while (first != NULL)
+	{
+		first->currentCores_d = ((int)(first->currentCores_d / first->V)) * first->V;
+		if (first->currentCores_d > first->bound_d)
+			first->currentCores_d = first->bound_d;
+		else addListPointers(&first_LP, &current_LP, first);
+
+		// applicazioni in sofferenza inserite nella lista nuova
+		// TODO gestier inserimento in modod che la lista sia ordinata con w decrescenti
+
+		allocatedCores+= first->currentCores_d;
+
+		first = first->next;
+	}
+	readListPointers(first_LP);
+
+	printf("fixInitialSolution: allocatedCores %lf\n", allocatedCores);
+
+	auxPointer = first_LP;
+	residualCores = N - allocatedCores;
+
+	while (!loopExit)
+	{
+		if (auxPointer == NULL) loopExit = 1;
+		else
+		{
+			// cores assignment
+
+			int addedCores = MIN(((int)(residualCores / auxPointer->applicazione->V) )* auxPointer->applicazione->V, auxPointer->applicazione->bound_d);
+			auxPointer->applicazione->currentCores_d+= addedCores;
+
+			printf("adding cores to App %s, %d \n", auxPointer->applicazione->app_id, addedCores);
+
+			printf(" applicationid %s new cores %d moved cores %d\n", auxPointer->applicazione->app_id, (int)auxPointer->applicazione->currentCores_d, addedCores);
+
+
+			auxPointer = auxPointer->next;
+			residualCores = residualCores - addedCores;
+
+		}
+
+		if (residualCores == 0) loopExit = 1;
+	}
+	readList(applications);
+
+}
 
 int main(int argc, char **argv)
 {
@@ -166,14 +227,16 @@ int main(int argc, char **argv)
      * For each eapplication:
      * -	Calculate nu_i (for other application different than the first),
      * -	Store each value in a db table
-     * -	Find the bound
+     * -	Find the bounds
      */
     process(conn, argv[1], first, nu_1, w1, csi_1, chi_c_1);
 
+    fixInitialSolution(first, N);
 
     /* Invoke localSearch */
     localSearch(first, N);
 
+    printf("Final solution\n");
     readList(first);
 
     /* De-allocate resources and close copnnection */

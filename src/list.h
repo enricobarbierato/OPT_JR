@@ -8,6 +8,11 @@
 #ifndef LIST_H_
 #define LIST_H_
 
+#define HYP_INTERPOLATION_POINTS  2
+
+
+
+
 
 struct Result
 {
@@ -18,11 +23,24 @@ struct Result
 };
 typedef struct Result sResult;
 
+struct lastSimulatorRun
+{
+	int nCores;
+	double R;
 
+};
+typedef struct lastSimulatorRun slastSimulatorRun;
+
+struct AlphaBetaManagement
+{
+	slastSimulatorRun vec[HYP_INTERPOLATION_POINTS];
+	int index;
+};
+typedef struct AlphaBetaManagement sAlphaBetaManagement;
 
 struct List
 {
-	/* Way to make calculation */
+	/* Way to invoke the algorithm */
 	int mode; /* How the objective function is calculated */
 
 	/* CSV file parameters related to the single application */
@@ -48,18 +66,39 @@ struct List
     double R_d;					/* Value of R as per the predictor */
     double R_bound_d;			/* Bound (R) */
     int baseFO;					/* base FO value (used to calculate the delta) */
+
     float alpha;				/* First parameter for Hyperbolic interpolation */
     float beta;					/* Second parameter for Hyperbolic interpolation */
+    sAlphaBetaManagement sAB;
 
 	struct List *next;
 };
 typedef struct List sList;
+
+
+
+
 // The element corresponding to the event
+
+
+
+
+struct ListPointers
+{
+	sList *applicazione;
+	struct ListPointers *next;
+};
+
+typedef struct ListPointers sListPointers;
+
+
+
+
 
 struct aux
 {
-	char * app1;
-	char * app2;
+	char * app1; // ToDO: sostituire con il puntatore all'applicazione
+	char * app2;// ToDO: sostituire con il puntatore all'applicazione
 	int newCoreAssignment1;
 	int newCoreAssignment2;
 	double deltaFO;
@@ -85,6 +124,10 @@ void addAuxParameters(sAux ** , sAux ** ,  char * , char * , int , int , double,
 void commitAssignment(sList *, char *,  double );
 sAux * findMinDelta(sAux * );
 int checkTotalCores(sList * pointer, double N);
+sList * searchApplication(sList * , char *);
+void addListPointers(sListPointers ** , sListPointers ** ,  sList *);
+void printRow(sList *);
+void readListPointers(sListPointers *);
 
 sList * returnARow(sList **  );
 void readResult(sResult *);

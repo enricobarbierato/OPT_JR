@@ -16,17 +16,23 @@
 #define CORES_ALGORITHM 1
 #define NCORES_ALGORITHM 2
 
-#define DOWN 0
-#define UP 1
+#define NO 0
+#define YES 1
 
 #define LUNDSTROM 0
 #define DAGSIM 1
 
 
-void  Bound(int deadline, int nNodes, int nCores, int datasetSize, char *appId, double *R, double *bound, int);
+void  Bound(sList *pointer);
 void process(MYSQL *, char * , sList *, double, double, double, double);
 char* invokeLundstrom(int , int , char * , int ,  char *);
+float computeBeta(sAlphaBetaManagement );
+float computeAlpha(sAlphaBetaManagement , float );
 void initialize(sList *);
+int ObjFunctionGlobal(sList *);
+int ObjFunctionComponent(sList * );
+int ObjFunctionComponentApprox(sList * );
+sAux * approximatedLoop(sList * );
 
 char *readFolder(char *);
 #endif /* SRC_LOCALSEARCH_H_ */

@@ -72,6 +72,17 @@ void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, d
 }
 
 
+
+sList * searchApplication(sList * first, char *appId)
+{
+	while (first != NULL)
+	{
+		if (strcmp(first->app_id, appId) == 0) return first;
+		first = first->next;
+	}
+	return NULL;
+}
+
 /*
  * 		Name:					readList
  * 		Input parameters:		sList *pointer
@@ -307,6 +318,44 @@ void addAuxParameters(sAux ** first, sAux ** current,  char * app_id1, char * ap
 	  else (*current)->next = new;
 	  *current = new;
 }
+
+
+
+void addListPointers(sListPointers ** first, sListPointers ** current,  sList *application)
+{
+
+
+	  sListPointers *new = (sListPointers*) malloc(sizeof(sListPointers));
+	  if (new == NULL)
+	  {
+		  printf("addListPointers: Fatal Error: malloc failure\n");
+		  exit(-1);
+	  }
+
+	  new->applicazione= application;
+
+	  new->next = NULL;
+
+	  if (*first == NULL) *first = new;
+	  else (*current)->next = new;
+	  *current = new;
+}
+
+
+void readListPointers(sListPointers *pointer)
+{
+	printf("\n\nListPointers list content:\n");
+
+
+	while (pointer!=NULL)
+	{
+		printRow(pointer->applicazione);
+
+		pointer = pointer->next;
+	}
+	printf("\n");
+}
+
 
 
 /*
