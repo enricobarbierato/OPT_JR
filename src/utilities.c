@@ -231,8 +231,8 @@ double max(double a, double b)
  */
 double getCsi(double a, double b)
 {
-	 if (doubleCompare(a, b) == -1) return a;
-	 else return b;
+	 if (doubleCompare(a, b) == -1) return b;
+	 else return a;
 }
 
 /*

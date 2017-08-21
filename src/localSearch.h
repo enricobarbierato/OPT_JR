@@ -24,7 +24,7 @@
 
 
 void  Bound(sList *pointer);
-void process(MYSQL *, char * , sList *, double, double, double, double);
+void calculate_Nu(MYSQL *, char * , sList *, int);
 char* invokeLundstrom(int , int , char * , int ,  char *);
 float computeBeta(sAlphaBetaManagement );
 float computeAlpha(sAlphaBetaManagement , float );

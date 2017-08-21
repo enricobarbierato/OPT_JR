@@ -16,8 +16,8 @@
  * 		Description:			This function adds all the information regarding an application into a list
  *
  */
-void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, double w, double chi_0, double chi_C, double chi_c_1, double m, double M, double V, double v, double Deadline_d, double csi,
-		double csi_1, char * StageId, int datasetSize)
+void addParameters(sList ** first,   sList ** current, char * app_id, double w, double chi_0, double chi_C, double m, double M, double V, double v, double Deadline_d, double csi,
+		char * StageId, int datasetSize)
 {
 
 
@@ -27,10 +27,6 @@ void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, d
 		  printf("addParameters: Fatal Error: malloc failure\n");
 		  exit(-1);
 	  }
-
-
-	  if (nApp == 0) new->chi_c_1 = chi_c_1;
-
 
 	  new->w = w;
 	  new->app_id = (char *)malloc(1024);
@@ -42,33 +38,35 @@ void addParameters(int nApp, sList ** first, sList ** current,  char * app_id, d
 	  strcpy(new->app_id, app_id);
 	  new->chi_0 = chi_0;
 	  new->chi_C = chi_C;
-
 	  new->m = m;
-		    new->M = M;
-		    new->V = V;
-		    new->v = v;
-		    new->Deadline_d = Deadline_d;
-		    new->csi = csi;
-		    new->csi_1 = csi_1;
-		    new->stage = (char *)malloc(1024);
-		    if (new->stage == NULL)
-		    {
-		    		printf("addParameters: malloc failure (stage)\n");
-		    		exit(-1);
-		    }
-		    		    strcpy(new->stage, StageId);
-		    		    new->datasetSize = datasetSize;
+	  new->M = M;
+	  new->V = V;
+	  new->v = v;
+	  new->Deadline_d = Deadline_d;
+	  new->csi = csi;
+
+	  new->stage = (char *)malloc(1024);
+	  if (new->stage == NULL)
+	  {
+		  printf("addParameters: malloc failure (stage)\n");
+		  exit(-1);
+	  }
+	  strcpy(new->stage, StageId);
+	  new->datasetSize = datasetSize;
 
 	  /* Initialize the parameter that will be calculated later */
-		 new->R_d = 0;
+	  new->R_d = 0;
 
-		 new->bound_d = 0;
+	  new->bound_d = 0;
 
-		 new->next = NULL;
+	  new->next = NULL;
 
 	  if (*first == NULL) *first = new;
 	  else (*current)->next = new;
 	  *current = new;
+
+
+
 }
 
 
@@ -126,7 +124,7 @@ void printRow(sList *pointer)
 			pointer->currentCores_d,
 			pointer->nCores_d);
 			*/
-	printf("app_id %s  nu %d currentcores = %d nCores = %d \n\n", pointer->app_id, (int)pointer->nu_d, (int)pointer->currentCores_d, (int)pointer->nCores_d);
+	printf("app_id %s  weight %lf nu %d currentcores = %d nCores from DB = %d \n\n", pointer->app_id, pointer->w, (int)pointer->nu_d, (int)pointer->currentCores_d, (int)pointer->nCores_DB_d);
 }
 
 void commitAssignment(sList *pointer, char *appId,  double DELTA)
@@ -159,14 +157,35 @@ void commitAssignment(sList *pointer, char *appId,  double DELTA)
 }
 
 
+
 /*
- * 		Name:					freeList
+ * 		Name:					freeApplicationList
  * 		Input parameters:		sList *pointer
  * 		Output parameters:		Pointer to the first application
  * 		Description:			It releases the allocated memory for the list
  *
  */
-void freeList(sList * pointer)
+void freeApplicationList(sListPointers * pointer)
+{
+	sListPointers * next;
+
+	while (pointer != NULL)
+	    {
+		if (pointer->app != NULL) free(pointer->app);
+	       next = pointer;
+	       pointer = pointer->next;
+	       if (next != NULL) free(next);
+	    }
+}
+
+/*
+ * 		Name:					freeParametersList
+ * 		Input parameters:		sList *pointer
+ * 		Output parameters:		Pointer to the first application
+ * 		Description:			It releases the allocated memory for the list
+ *
+ */
+void freeParametersList(sList * pointer)
 {
 	sList * next;
 
@@ -229,11 +248,7 @@ sAux * findMinDelta(sAux * pointer)
 	int min = INT_MAX;
 	sAux *minAux = NULL;
 
-	if (pointer == NULL)
-	{
-		printf("pointer to auxiliary struct is null in findMinDelta\n");
-		exit(-1);
-	}
+
 	while (pointer != NULL)
 	{
 		if (pointer->deltaFO < min)
@@ -321,7 +336,7 @@ void addAuxParameters(sAux ** first, sAux ** current,  char * app_id1, char * ap
 
 
 
-void addListPointers(sListPointers ** first, sListPointers ** current,  sList *application)
+void addListPointers(sListPointers ** first,   sList *application)
 {
 
 
@@ -332,13 +347,38 @@ void addListPointers(sListPointers ** first, sListPointers ** current,  sList *a
 		  exit(-1);
 	  }
 
-	  new->applicazione= application;
-
+	  new->app= application;
 	  new->next = NULL;
 
+	  /*
 	  if (*first == NULL) *first = new;
 	  else (*current)->next = new;
 	  *current = new;
+	  */
+
+
+	  if (*first == NULL) *first = new;
+	 	  else
+	 		  if (application->w > (*first)->app->w)
+	 		  {
+	 			  new->next = *first;
+	 			  *first = new;
+	 		  }
+	 		  	 else
+	 			 {
+	 		  		sListPointers * previous = *first;
+	 		  		sListPointers * current = *first;
+
+	 				 while (current != NULL && current->app->w > application->w)
+	 				 {
+	 					 previous = current;
+	 					 current = current->next;
+	 				 }
+
+	 				 previous->next = new;
+	 				 new->next = current;
+	 			 }
+
 }
 
 
@@ -349,7 +389,7 @@ void readListPointers(sListPointers *pointer)
 
 	while (pointer!=NULL)
 	{
-		printRow(pointer->applicazione);
+		printRow(pointer->app);
 
 		pointer = pointer->next;
 	}

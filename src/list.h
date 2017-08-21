@@ -47,13 +47,13 @@ struct List
 	char * app_id;
     double w;					/* Weight application  */
     double chi_0;
-    double chi_C, chi_c_1;
+    double chi_C;
     double m;
     double M;
     double V;
     double v;
     double Deadline_d;					/* Deadline */
-    double csi, csi_1;
+    double csi;
     char * stage;
     int datasetSize;
 
@@ -61,7 +61,7 @@ struct List
 
     double nu_d;
     double currentCores_d;		/* Initialized to nu_i */
-    double nCores_d;			/* Initialized to the value from look-up table */
+    double nCores_DB_d;			/* Initialized to the value from look-up table */
     double bound_d;				/* Bound (number of cores) */
     double R_d;					/* Value of R as per the predictor */
     double R_bound_d;			/* Bound (R) */
@@ -85,7 +85,7 @@ typedef struct List sList;
 
 struct ListPointers
 {
-	sList *applicazione;
+	sList *app;
 	struct ListPointers *next;
 };
 
@@ -110,11 +110,12 @@ typedef struct aux sAux;
 /*
  * Function templates
  */
-void freeList(sList * pointer);
+void freeParametersList(sList * pointer);
+void freeApplicationList(sListPointers * pointer);
 void readList(sList *);
 void printRow(sList *);
 void freeResultList(sResult * );
-void addParameters(int, sList ** , sList ** ,  char *, double , double ,  double , double , double , double , double , double , double , double , double, char *, int  );
+void addParameters(sList ** ,  sList **, char *, double , double  , double , double , double , double , double , double , double, char *, int  );
 
 void freeAuxList(sAux * pointer);
 void readAuxList(sAux *);
@@ -125,7 +126,7 @@ void commitAssignment(sList *, char *,  double );
 sAux * findMinDelta(sAux * );
 int checkTotalCores(sList * pointer, double N);
 sList * searchApplication(sList * , char *);
-void addListPointers(sListPointers ** , sListPointers ** ,  sList *);
+void addListPointers(sListPointers ** ,  sList *);
 void printRow(sList *);
 void readListPointers(sListPointers *);
 

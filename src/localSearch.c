@@ -219,7 +219,7 @@ void  Bound(sList * pointer)
 	int BTime = 0;
 	int BCores = 0;
 	int STEP = pointer->V;
-	pointer->currentCores_d=pointer->nCores_d;
+	pointer->currentCores_d=pointer->nCores_DB_d;
 /*
 	int a=pointer->currentCores_d ;
 	int b= pointer->V;
@@ -269,7 +269,7 @@ void  Bound(sList * pointer)
 				BCores = nCores;
 				BTime = predictorOutput;
 				nCores = nCores - STEP;
-			    printf("Bound evaluation, appid %s, evaluating %d\n", pointer->app_id, nCores);
+			    printf("Bound evaluation, appid %s, evaluating %lf\n", pointer->app_id, nCores);
 
 				if (nCores <= 0)
 				{
@@ -426,7 +426,7 @@ int ObjFunctionComponentApprox(sList * pointer)
  * 								Secondly, it invokes the Bound function.
  *
  */
-void findBound(MYSQL *conn, char *db,   int deadline, sList *pointer)
+void findBound(MYSQL *conn, char *db,  sList *pointer)
 {
 
 	char statement[256];
@@ -437,10 +437,10 @@ void findBound(MYSQL *conn, char *db,   int deadline, sList *pointer)
 	 *
 	 **/
         sprintf(statement,
-                        "select num_cores_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%d;"
-                        , db, pointer->app_id, pointer->datasetSize, deadline);
+                        "select num_cores_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%lf;"
+                        , db, pointer->app_id, pointer->datasetSize, pointer->Deadline_d);
 
-    pointer->nCores_d = executeSQL(conn, statement);
+    pointer->nCores_DB_d = executeSQL(conn, statement);
 
     Bound(pointer);
     /*
@@ -593,8 +593,9 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 
 	printf("Destroy Aux list\n");
 
-	// DESTROY Auxiliary list and prepare it for a new run
-	// TO DO remove sfirstAuxApproximated !!!!!!!!
+	// DESTROY Auxiliary lists and prepare it for a new run
+
+	freeAuxList(sfirstAuxApproximated);
 	freeAuxList(firstAux);
 	firstAux = NULL;
 	currentAux = NULL;
@@ -647,20 +648,15 @@ void initialize(sList * application_i)
  * 								- it calculates the bound for each application
  *
  */
-void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, double w1, double csi_1, double chi_c_1)
+void calculate_Nu(MYSQL *conn, char * uniqueFilename, sList *first, int N)
 {
 
-	//double chi_0;
-	double chi_C;
-	double M;
-	double m;
-	double v;
-	double V;
-	double Deadline_d;
-	int rows = 1;
+	sList * current = first;
+	int rows = 0;
 	char * app_id;
-	double w;
-
+	double w1;
+	double chi_c_1;
+	double csi_1;
 	double index_d;
 	double csi;
 
@@ -673,27 +669,43 @@ void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, do
     }
 
 
-
+	/* Calculate nu_1 */
+	double tot = 0;
 	while (current != NULL)
-	    {
-	    	strcpy(app_id, current->app_id);
+	{
+		if (rows == 0) /* First row only */
+		{
+			w1 = current->w;
+			chi_c_1 = current->chi_C;
+			csi_1 = getCsi(current->M/current->m, current->V/current->v);
+			//printf("first app: %s %lf %lf %lf\n", current->app_id, w1, chi_c_1, csi_1);
+		}
+		else /*Any other row */
+		{
+		       csi = getCsi(current->M/current->m, current->V/current->v);
+		       tot = tot + sqrt((current->w/w1)*(current->chi_C/chi_c_1)*(csi_1/csi));
+		       //printf("Other rows: %s %lf %lf %lf\n", current->app_id, current->w, csi, tot);
+		}
+		rows++;
+		current = current->next;
+	}
 
-	    	if (rows > 1 ) w = 	current->w;/* Any other application than the first */
+	double nu_1 = N/(1 + tot);
+	//printf("nu_1=%lf\n", nu_1);
 
-	    	//chi_0 = current->chi_0;
-	        chi_C = current->chi_C;
-	        M = 	current->M;
-	        m = 	current->m;
-	        V = 	current->V;
-	        v = 	current->v;
-	        Deadline_d = 	current->Deadline_d;
+	rows = 0;
 
-	        csi = getCsi(M/m, V/v);
+	while (first != NULL)
+	{
+	    csi = getCsi(first->M/first->m, first->V/first->v);
 
-	        if (rows == 1) index_d = nu_1; else index_d = nu_1*sqrt((w/w1)*(chi_C/chi_c_1)*(csi_1/csi));
-	        current->nu_d = index_d;
-	        current->currentCores_d = index_d;
+	    if (rows == 0) index_d = nu_1; else
+	    /* Any other application than the first */
+	        index_d = nu_1*sqrt((first->w/w1)*(first->chi_C/chi_c_1)*(csi_1/csi));
+	    first->nu_d = index_d;
+	    first->currentCores_d = index_d;
 
+	    //printf("%lf %lf %lf %lf\n",current->w, index_d, nu_1, sqrt((current->w/w1)*(current->chi_C/chi_c_1)*(csi_1/csi)));
 
 
 	        /* Update the db table */
@@ -705,27 +717,24 @@ void process(MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, do
 	           2) the bound (time)
 	        */
 
-	        findBound(conn, parseConfigurationFile("OptDB_dbName", XML), Deadline_d, current);
+	     findBound(conn, parseConfigurationFile("OptDB_dbName", XML), first);
 
 	        /* Compute alpha and beta for H Interpolation
 	         *
 	         */
-	        current->beta = computeBeta(current->sAB);
-	        current->alpha = computeAlpha(current->sAB, current->beta);
+	     first->beta = computeBeta(first->sAB);
+	     first->alpha = computeAlpha(first->sAB, first->beta);
 
-	        printf("App %s alpha = %lf beta = %lf\n", current->app_id, current->alpha, current->beta);
-	        printf(" R %lf nCores %d\n", current->sAB.vec[0].R, current->sAB.vec[0].nCores);
-	        printf(" R %lf nCores %d\n", current->sAB.vec[1].R, current->sAB.vec[1].nCores);
-
-
-
+	        printf("App %s alpha = %lf beta = %lf\n", first->app_id, first->alpha, first->beta);
+	        printf(" R %lf nCores %d\n", first->sAB.vec[0].R, first->sAB.vec[0].nCores);
+	        printf(" R %lf nCores %d\n", first->sAB.vec[1].R, first->sAB.vec[1].nCores);
 
 	        //current->currentCores_d = current->bound_d;
 
-	        printRow(current);
-	        current = current->next;
-	        rows++;
-	     }
+	        printRow(first);
+	      first = first->next;
+	      rows++;
+	   }
 
 }
 
