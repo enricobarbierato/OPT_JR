@@ -611,12 +611,13 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 	//application_i = first_i;
 
 	// DANILO faccio somma di numero di core assegnati e confronto con N
-
+/*
 	if (!checkTotalCores(first_i, n))
 	{
 			printf("Total cores (new assignment) not equal to original N (%d)\n", n );
 
 	}
+	*/
 	printf("****************************************************\n");
 }
 

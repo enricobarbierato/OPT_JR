@@ -43,7 +43,7 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 		else addListPointers(&first_LP, first);
 
 		// applicazioni in sofferenza inserite nella lista nuova
-		// TODO gestier inserimento in modod che la lista sia ordinata con w decrescenti
+		// TODO gestire inserimento in modo che la lista sia ordinata con w decrescenti
 
 		allocatedCores+= first->currentCores_d;
 

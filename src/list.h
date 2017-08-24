@@ -48,9 +48,9 @@ struct List
 
     /* Calculated values */
 
-    double nu_d;				/* nu value */
-    double currentCores_d;		/* Initialized to nu_i */
-    double nCores_DB_d;			/* Initialized to the value from look-up table */
+    int nu_d;					/* nu value */
+    int  currentCores_d;		/* Initialized to nu_i */
+    int  nCores_DB_d;			/* Initialized to the value from look-up table */
     double bound_d;				/* Bound (number of cores) */
     double R_d;					/* Value of R as per the predictor */
     double R_bound_d;			/* Bound (R) */
