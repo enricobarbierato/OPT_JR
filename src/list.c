@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <float.h>
 
 
 #include "list.h"
@@ -61,9 +62,33 @@ void addParameters(sList ** first,   sList ** current, char * app_id, double w, 
 
 	  new->next = NULL;
 
+	  /*
 	  if (*first == NULL) *first = new;
 	  else (*current)->next = new;
 	  *current = new;
+	   */
+
+	  if (*first == NULL) *first = new;
+	 	 	 	  else
+	 	 	 		  if (doubleCompare((*first)->w, w) == 1)
+	 	 	 		  {
+	 	 	 			  new->next = *first;
+	 	 	 			  *first = new;
+	 	 	 		  }
+	 	 	 		  	 else
+	 	 	 			 {
+	 	 	 		  		sList * previous = *first;
+	 	 	 		  	sList * current = (*first)->next;
+
+	 	 	 				 while (current != NULL && doubleCompare(current->w, w) == -1)
+	 	 	 				 {
+	 	 	 					 previous = current;
+	 	 	 					 current = current->next;
+	 	 	 				 }
+
+	 	 	 				 previous->next = new;
+	 	 	 				 new->next = current;
+	 	 	 			 }
 
 
 
@@ -197,23 +222,7 @@ void freeParametersList(sList * pointer)
 	    }
 }
 
-/*
- * 		Name:					returnARow
- * 		Input parameters:		sList *pointer
- * 		Output parameters:		Pointer to the first application
- * 		Description:			This function returns, one by one, the applications of the list one by one
- *
- */
 
-sList * returnARow(sList ** first )
-{
-	if (*first == NULL) return NULL;
-
-	sList * next = *first;
-	*first = (*first)->next;
-
-	return(next);
-}
 
 
 /*
@@ -245,13 +254,13 @@ void freeAuxList(sAux * pointer)
  */
 sAux * findMinDelta(sAux * pointer)
 {
-	int min = INT_MAX;
+	double min = DBL_MAX;
 	sAux *minAux = NULL;
 
 
 	while (pointer != NULL)
 	{
-		if (pointer->deltaFO < min)
+		if (doubleCompare(pointer->deltaFO, min) == -1)
 			{
 				min = pointer->deltaFO;
 				minAux = pointer;
@@ -287,7 +296,7 @@ int checkTotalCores(sList * pointer, double N)
  * 		Description:			This function adds all the information regarding the localSearch deltafo calculation
  *
  */
-void addAuxParameters(sAux ** first, sAux ** current,  char * app_id1, char * app_id2, int contr1, int contr2, double delta, double delta_i, double delta_j)
+void addAuxParameters(sAux ** first, sAux ** current,  sList * app1, sList * app2, int contr1, int contr2, double delta, double delta_i, double delta_j)
 {
 	if (contr1 < 0 || contr2 < 0)
 	{
@@ -303,25 +312,8 @@ void addAuxParameters(sAux ** first, sAux ** current,  char * app_id1, char * ap
 	  }
 
 
-	  /*
-	   * Applications
-	   */
-	  new->app1 = (char *)malloc(1024);
-	  if (new->app1 == NULL)
-	  {
-	  	  	    printf("addAuxParameters (char *): malloc failure\n");
-	  	  	    exit(-1);
-	  }
-	  strcpy(new->app1, app_id1);
-
-	  new->app2 = (char *)malloc(1024);
-	  if (new->app2 == NULL)
-	  {
-	  	  	printf("addAuxParameters (char *): malloc failure\n");
-	  	  	exit(-1);
-	  }
-	  strcpy(new->app2, app_id2);
-
+	  new->app1 = app1;
+	  new->app2 = app2;
 	  new->newCoreAssignment1 = contr1;
 	  new->newCoreAssignment2 = contr2;
 	  new->deltaFO = delta;
@@ -329,9 +321,32 @@ void addAuxParameters(sAux ** first, sAux ** current,  char * app_id1, char * ap
 	  new->delta_j = delta_j;
 	  new->next = NULL;
 
+/*
 	  if (*first == NULL) *first = new;
 	  else (*current)->next = new;
-	  *current = new;
+	  *current = new;*/
+
+	  if (*first == NULL) *first = new;
+	 	 	 	  else
+	 	 	 		  if (doubleCompare((*first)->deltaFO, delta) == 1)
+	 	 	 		  {
+	 	 	 			  new->next = *first;
+	 	 	 			  *first = new;
+	 	 	 		  }
+	 	 	 		  	 else
+	 	 	 			 {
+	 	 	 		  		sAux * previous = *first;
+	 	 	 		  		sAux * current = (*first)->next;
+
+	 	 	 				 while (current != NULL && doubleCompare(current->deltaFO, delta) == -1)
+	 	 	 				 {
+	 	 	 					 previous = current;
+	 	 	 					 current = current->next;
+	 	 	 				 }
+
+	 	 	 				 previous->next = new;
+	 	 	 				 new->next = current;
+	 	 	 			 }
 }
 
 
@@ -358,26 +373,26 @@ void addListPointers(sListPointers ** first,   sList *application)
 
 
 	  if (*first == NULL) *first = new;
-	 	  else
-	 		  if (application->w > (*first)->app->w)
-	 		  {
-	 			  new->next = *first;
-	 			  *first = new;
-	 		  }
-	 		  	 else
-	 			 {
-	 		  		sListPointers * previous = *first;
-	 		  		sListPointers * current = *first;
+	 	 	 	 	  else
+	 	 	 	 		  if (doubleCompare((*first)->app->w, application->w) == 1)
+	 	 	 	 		  {
+	 	 	 	 			  new->next = *first;
+	 	 	 	 			  *first = new;
+	 	 	 	 		  }
+	 	 	 	 		  	 else
+	 	 	 	 			 {
+	 	 	 	 		  		sListPointers * previous = *first;
+	 	 	 	 		  		sListPointers * current = (*first)->next;
 
-	 				 while (current != NULL && current->app->w > application->w)
-	 				 {
-	 					 previous = current;
-	 					 current = current->next;
-	 				 }
+	 	 	 	 				 while (current != NULL && doubleCompare(current->app->w, application->w) == -1)
+	 	 	 	 				 {
+	 	 	 	 					 previous = current;
+	 	 	 	 					 current = current->next;
+	 	 	 	 				 }
 
-	 				 previous->next = new;
-	 				 new->next = current;
-	 			 }
+	 	 	 	 				 previous->next = new;
+	 	 	 	 				 new->next = current;
+	 	 	 	 			 }
 
 }
 
@@ -415,6 +430,7 @@ void readAuxList(sAux *pointer)
 	while (pointer!=NULL)
 	{
 		printAuxRow(pointer);
+		//printf("%lf\n", pointer->deltaFO);
 
 		pointer = pointer->next;
 	}
@@ -423,9 +439,10 @@ void readAuxList(sAux *pointer)
 
 void printAuxRow(sAux *pointer)
 {
-
-    printf("app_id1 = %s  app_id2 = %s newCoresAssignment1 = %d newCoresAssignment2 = %d Totdelta = %lf delta1 = %lf delta2 = %lf\n\n ",
-    		pointer->app1, pointer->app2, (int)pointer->newCoreAssignment1, (int)pointer->newCoreAssignment2,
+	printRow(pointer->app1);
+	printRow(pointer->app2);
+    printf("newCoresAssignment1 = %d newCoresAssignment2 = %d Totdelta = %lf delta1 = %lf delta2 = %lf\n\n ",
+    		(int)pointer->newCoreAssignment1, (int)pointer->newCoreAssignment2,
 			pointer->deltaFO, pointer->delta_i, pointer->delta_j);
 }
 

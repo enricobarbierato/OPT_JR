@@ -12,17 +12,6 @@
 
 
 
-
-
-struct Result
-{
-	int index;
-	char * app_id;
-    double nu;
-	struct Result *next;
-};
-typedef struct Result sResult;
-
 struct lastSimulatorRun
 {
 	int nCores;
@@ -59,13 +48,13 @@ struct List
 
     /* Calculated values */
 
-    double nu_d;
+    double nu_d;				/* nu value */
     double currentCores_d;		/* Initialized to nu_i */
     double nCores_DB_d;			/* Initialized to the value from look-up table */
     double bound_d;				/* Bound (number of cores) */
     double R_d;					/* Value of R as per the predictor */
     double R_bound_d;			/* Bound (R) */
-    int baseFO;					/* base FO value (used to calculate the delta) */
+    double baseFO;				/* base FO value (used to calculate the delta) */
 
     float alpha;				/* First parameter for Hyperbolic interpolation */
     float beta;					/* Second parameter for Hyperbolic interpolation */
@@ -97,8 +86,8 @@ typedef struct ListPointers sListPointers;
 
 struct aux
 {
-	char * app1; // ToDO: sostituire con il puntatore all'applicazione
-	char * app2;// ToDO: sostituire con il puntatore all'applicazione
+	sList * app1; // ToDO: sostituire con il puntatore all'applicazione
+	sList * app2;// ToDO: sostituire con il puntatore all'applicazione
 	int newCoreAssignment1;
 	int newCoreAssignment2;
 	double deltaFO;
@@ -107,6 +96,8 @@ struct aux
 	struct aux *next;
 };
 typedef struct aux sAux;
+
+
 /*
  * Function templates
  */
@@ -114,14 +105,12 @@ void freeParametersList(sList * pointer);
 void freeApplicationList(sListPointers * pointer);
 void readList(sList *);
 void printRow(sList *);
-void freeResultList(sResult * );
 void addParameters(sList ** ,  sList **, char *, double , double  , double , double , double , double , double , double , double, char *, int  );
-
 void freeAuxList(sAux * pointer);
 void readAuxList(sAux *);
 void printAuxRow(sAux *);
 void freeAuxList(sAux * );
-void addAuxParameters(sAux ** , sAux ** ,  char * , char * , int , int , double, double, double);
+void addAuxParameters(sAux ** , sAux ** ,  sList * , sList * , int , int , double, double, double);
 void commitAssignment(sList *, char *,  double );
 sAux * findMinDelta(sAux * );
 int checkTotalCores(sList * pointer, double N);
@@ -130,9 +119,5 @@ void addListPointers(sListPointers ** ,  sList *);
 void printRow(sList *);
 void readListPointers(sListPointers *);
 
-sList * returnARow(sList **  );
-void readResult(sResult *);
-
-void addResult(sResult ** , sResult ** ,  int , double, char * );
 
 #endif /* LIST_H_ */

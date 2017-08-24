@@ -28,7 +28,7 @@ const int _St = 10;
 const int _Dsz = 11;
 
 void findBound(MYSQL *conn, char *,  sList **);
-void localSearch(sList *, int);
+void localSearch(sList *, int, int);
 void calculate_Nu(MYSQL *, char * , sList *, int);
 
 void split (char str[], int *a, int *b);

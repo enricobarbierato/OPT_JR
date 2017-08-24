@@ -90,8 +90,8 @@ sAux * approximatedLoop(sList *first_i )
 						if ((int)(DELTA_fo_App_i + DELTA_fo_App_j) < 0 )
 							addAuxParameters(&sfirstAuxApproximated,
 									&scurrentAuxApproximated,
-									application_i->app_id,
-									application_j->app_id,
+									application_i,
+									application_j,
 									application_i->currentCores_d,
 									application_j->currentCores_d,
 									DELTA_fo_App_i + DELTA_fo_App_j,
@@ -465,7 +465,7 @@ void findBound(MYSQL *conn, char *db,  sList *pointer)
  * 		Description:			Localsearch algorithm as per functional analysis
  *
  */
-void localSearch(sList * application_i, int n)
+void localSearch(sList * application_i, int n, int MAX_PROMISING_CONFIGURATIONS)
 {
 	sList * application_j, *first_i = application_i;
 	sAux *firstAux = NULL, *currentAux = NULL;
@@ -498,7 +498,7 @@ void localSearch(sList * application_i, int n)
 
 
 
-
+int index = 0;
 for (int i = 1; i <= MAX_ITERATIONS; i++){
 	printf("ITERATION %d\n", i);
 
@@ -507,10 +507,12 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 
 	printf("\n\n ************************************** Ex-iteration loop ***********************************************************************\n");
 
-		while (sfirstAuxApproximated != NULL)
+		while (sfirstAuxApproximated != NULL )
 		{
-			strcpy(app_id_i, sfirstAuxApproximated->app1);
-			strcpy(app_id_j, sfirstAuxApproximated->app2);
+
+
+			strcpy(app_id_i, sfirstAuxApproximated->app1->app_id);
+			strcpy(app_id_j, sfirstAuxApproximated->app2->app_id);
 			application_i = searchApplication(first_i, app_id_i);
 			application_j = searchApplication(first_i, app_id_j);
 
@@ -555,8 +557,8 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 				if ((int)(DELTA_fo_App_i + DELTA_fo_App_j) < 0 )
 					addAuxParameters(&firstAux,
 							&currentAux,
-							application_i->app_id,
-							application_j->app_id,
+							application_i,
+							application_j,
 							application_i->currentCores_d,
 							application_j->currentCores_d,
 							DELTA_fo_App_i + DELTA_fo_App_j,
@@ -569,22 +571,27 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 				application_j->currentCores_d = application_j->currentCores_d + DELTAVM_j*application_j->V;
 			}
 			sfirstAuxApproximated = sfirstAuxApproximated->next;
+
 		}
 
 	readAuxList(firstAux);
 
 	// DANILO accedo alla lista di appoggio cercando delta fo minore
 	//TODO: valutare le prime n della lista firstAUX ordinata per valore delta totale FO (app_i+app_j)
-	minAux = findMinDelta(firstAux);
-	if (minAux == NULL)
+	//minAux = findMinDelta(firstAux);
+
+	//if (minAux == NULL)
+	minAux = firstAux; // The list is now sorted, so the smallest element is the first;
+
+	if ((firstAux ==NULL || index == MAX_PROMISING_CONFIGURATIONS))
 	{
-		printf("Auxiliary list empty. Optimization terminated.\n");// Se non c'è minimo vuol dire che non c'è migliorante usciamo dal ciclo
+		printf("Auxiliary list empty or MAX_PROMISING_CONFIGURATIONS has been reached. Optimization terminated.\n");// Se non c'è minimo vuol dire che non c'è migliorante usciamo dal ciclo
 		return;
 	}
-
+	index++;
 	// DANILO effettuo assegnamento del numero di core alle applicazioni
-	commitAssignment(first_i, minAux->app1, minAux->delta_i); // application i
-	commitAssignment(first_i, minAux->app2, -minAux->delta_j); // application j
+	commitAssignment(first_i, minAux->app1->app_id, minAux->delta_i); // application i
+	commitAssignment(first_i, minAux->app2->app_id, -minAux->delta_j); // application j
 
 	if (GLOBAL_PRINT == YES) printf("Global obj function %d\n", ObjFunctionGlobal(first_i));
 

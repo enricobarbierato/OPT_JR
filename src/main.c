@@ -105,7 +105,7 @@ int main(int argc, char **argv)
     /*
      * Check Usage
      */
-    if (argc < 3) Usage();
+    if (argc < 4) Usage();
 
 
     /*
@@ -119,6 +119,7 @@ int main(int argc, char **argv)
      * Read total cores available
      */
     N = atof(argv[2]);
+    int MAX_PROMISING_CONFIGURATIONS = atoi(argv[3]);
 
 
 
@@ -202,7 +203,7 @@ int main(int argc, char **argv)
 
 
     /* Invoke localSearch */
-    localSearch(first, N);
+    localSearch(first, N, MAX_PROMISING_CONFIGURATIONS);
 
     printf("Final solution\n");
     readList(first);
