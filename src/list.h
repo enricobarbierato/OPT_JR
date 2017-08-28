@@ -86,8 +86,8 @@ typedef struct ListPointers sListPointers;
 
 struct aux
 {
-	sList * app1; // ToDO: sostituire con il puntatore all'applicazione
-	sList * app2;// ToDO: sostituire con il puntatore all'applicazione
+	sList * app1; // ToDO: replace to the pointer to the application -> DONE
+	sList * app2;// ToDO: replace to the pointer to the application -> DONE
 	int newCoreAssignment1;
 	int newCoreAssignment2;
 	double deltaFO;

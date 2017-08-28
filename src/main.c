@@ -24,14 +24,14 @@
 sListPointers * fixInitialSolution(sList *applications, int N)
 {
 	sList * first;
-	double allocatedCores;
+	int allocatedCores;
 	sListPointers * first_LP = NULL;
 	int loopExit = 0;
 	sListPointers *auxPointer;
 	int residualCores;
 
 
-	allocatedCores = 0; // TODO To be changed into INT
+	allocatedCores = 0; // TODO To be changed into INT ->DONE
 
 	first = applications;
 
@@ -42,8 +42,8 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 			first->currentCores_d = first->bound_d;
 		else addListPointers(&first_LP, first);
 
-		// applicazioni in sofferenza inserite nella lista nuova
-		// TODO gestire inserimento in modo che la lista sia ordinata con w decrescenti
+		// Danilo Application (suffering) insert in the new list
+		// TODO Handle insert in such a way the list is sorted by weight -> DONE
 
 		allocatedCores+= first->currentCores_d;
 
@@ -51,7 +51,7 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 	}
 	readListPointers(first_LP);
 
-	printf("fixInitialSolution: allocatedCores %lf\n", allocatedCores);
+	printf("fixInitialSolution: allocatedCores %d\n", allocatedCores);
 
 	auxPointer = first_LP;
 	residualCores = N - allocatedCores;

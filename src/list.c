@@ -110,7 +110,7 @@ sList * searchApplication(sList * first, char *appId)
  * 		Name:					readList
  * 		Input parameters:		sList *pointer
  * 		Output parameters:		Pointer to the first application
- * 		Description:			This function prointd the information about all the applications in the list. It is used for debug only.
+ * 		Description:			This function prints the information about all the applications in the list. It is used for debug only.
  *
  */
 
@@ -196,7 +196,7 @@ void freeApplicationList(sListPointers * pointer)
 
 	while (pointer != NULL)
 	    {
-		if (pointer->app != NULL) free(pointer->app);
+		//if (pointer->app != NULL) free(pointer->app);
 	       next = pointer;
 	       pointer = pointer->next;
 	       if (next != NULL) free(next);

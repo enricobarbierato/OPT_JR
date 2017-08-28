@@ -20,6 +20,12 @@
 
 sAux * approximatedLoop(sList *first_i )
 {
+	if (first_i == NULL)
+	{
+		printf("Error: approximatedLoop: null pointer<n");
+		exit(-1);
+	}
+
 	int nCoreMov;
 	double DELTAVM_i;
 	double DELTAVM_j;
@@ -84,7 +90,7 @@ sAux * approximatedLoop(sList *first_i )
 
 						//printf("App %s Delta FO Approx  %lf\n", application_i->app_id, DELTA_fo_App_i);
 						//printf("App %s Delta FO Approx  %lf\n", application_j->app_id, DELTA_fo_App_j);
-						// DANILO Store delta complessivo e numeri core in lista di appoggio -> ENRICO DONE
+						// TODO DANILO Store global delta complessivo and number of cores into auxiloiary list -> ENRICO DONE
 
 
 						if ((int)(DELTA_fo_App_i + DELTA_fo_App_j) < 0 )
@@ -99,7 +105,7 @@ sAux * approximatedLoop(sList *first_i )
 									DELTAVM_j
 									);
 
-						// DANILO ripristina numero di core precedenti -> ENRICO DONE
+						// TODO DANILO Restore previous number of cores -> ENRICO DONE
 						application_i->currentCores_d = application_i->currentCores_d - DELTAVM_i*application_i->V;
 						application_j->currentCores_d = application_j->currentCores_d + DELTAVM_j*application_j->V;
 					}
@@ -552,7 +558,7 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 						application_j->app_id, DELTA_fo_App_j);
 
 
-				// DANILO Store delta complessivo e numeri core in lista di appoggio -> ENRICO DONE
+				// DANILO Store total delta complessivo and number of cores into auxiliary list -> ENRICO DONE
 
 				if ((int)(DELTA_fo_App_i + DELTA_fo_App_j) < 0 )
 					addAuxParameters(&firstAux,
@@ -566,7 +572,7 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 							DELTAVM_j
 							);
 
-				// DANILO ripristina numero di core precedenti -> ENRICO DONE
+				// DANILO restore previous number of cores -> ENRICO DONE
 				application_i->currentCores_d = application_i->currentCores_d - DELTAVM_i*application_i->V;
 				application_j->currentCores_d = application_j->currentCores_d + DELTAVM_j*application_j->V;
 			}
@@ -576,26 +582,29 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 
 	readAuxList(firstAux);
 
-	// DANILO accedo alla lista di appoggio cercando delta fo minore
-	//TODO: valutare le prime n della lista firstAUX ordinata per valore delta totale FO (app_i+app_j)
+	// TODO DANILO retrieve from the auxioliary list the element with the smallest delta_fo
+	// TODO: consider only the first n elements of the list (sorted by total FO given by (app_i+app_j))
 	//minAux = findMinDelta(firstAux);
-
 	//if (minAux == NULL)
 	minAux = firstAux; // The list is now sorted, so the smallest element is the first;
 
 	if ((firstAux ==NULL || index == MAX_PROMISING_CONFIGURATIONS))
 	{
 		printf("Auxiliary list empty or MAX_PROMISING_CONFIGURATIONS has been reached. Optimization terminated.\n");// Se non c'è minimo vuol dire che non c'è migliorante usciamo dal ciclo
+		freeAuxList(sfirstAuxApproximated);
+		freeAuxList(firstAux);
+		firstAux = NULL;
+		currentAux = NULL;
 		return;
 	}
 	index++;
-	// DANILO effettuo assegnamento del numero di core alle applicazioni
+	// TODO DANILO assign number of cores to the applications
 	commitAssignment(first_i, minAux->app1->app_id, minAux->delta_i); // application i
 	commitAssignment(first_i, minAux->app2->app_id, -minAux->delta_j); // application j
 
 	if (GLOBAL_PRINT == YES) printf("Global obj function %d\n", ObjFunctionGlobal(first_i));
 
-	// Modificare in modo da ricalcolare solo FO per le applicazioni i e j (usare le copie sopra, senza richiamare dagSim
+	// TODO Modify to recalculate only FO for apps i,j (use the above copies without invoke dagSim)
 	initialize(first_i);
 
 	printf("Destroy Aux list\n");
@@ -610,7 +619,7 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 	/* Prepare applications list for a new run */
 	//application_i = first_i;
 
-	// DANILO faccio somma di numero di core assegnati e confronto con N
+	// TODO DANILO sum the assigned core and commpare with N
 /*
 	if (!checkTotalCores(first_i, n))
 	{
@@ -647,7 +656,7 @@ void initialize(sList * application_i)
 
 
 /*
- * 		Name:					process
+ * 		Name:					calculate_Nu
  * 		Input parameters:		MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, double w1, double csi_1, double chi_c_1
  * 		Output parameters:		none
  * 		Description:			Given nu_1 and other measures related to the first applications:

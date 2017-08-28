@@ -319,7 +319,7 @@ FILE * fp;
 /*
  * 		Name:					bestMatch
  * 		Input parameters:		char * path, int nValue
- * 		Output parameters:		A best structure including the best match
+ * 		Output parameters:		The best structure including the best match
  * 		Description:			Given nNodes * nCores, it provides the best match in the data log repository
  * 		NOTE: This function is not optimized - no need to use a struct. Needs some fixing
  * 		NOTE: This function is not currently used
