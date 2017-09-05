@@ -18,7 +18,7 @@
 
 
 
-sAux * approximatedLoop(sList *first_i )
+sAux * approximatedLoop(sList *first_i, int *iteration )
 {
 	if (first_i == NULL)
 	{
@@ -26,6 +26,7 @@ sAux * approximatedLoop(sList *first_i )
 		exit(-1);
 	}
 
+	int record = 0;
 	int nCoreMov;
 	double DELTAVM_i;
 	double DELTAVM_j;
@@ -33,6 +34,7 @@ sAux * approximatedLoop(sList *first_i )
 	sAux * scurrentAuxApproximated = NULL;
 	sAux * sfirstAuxApproximated = NULL;
 	sList *application_i,  *application_j;
+
 
 	/* Initialize to the first element */
 	/* (possibly redundant) */
@@ -70,6 +72,7 @@ sAux * approximatedLoop(sList *first_i )
 
 					if (application_i->currentCores_d > 0 && application_j->currentCores_d > 0)
 					{
+						++record;
 						/* Set up the algorithm for FO evaluation */
 						//application_i->mode= R_ALGORITHM;application_j->mode= R_ALGORITHM;
 
@@ -105,22 +108,25 @@ sAux * approximatedLoop(sList *first_i )
 									DELTAVM_j
 									);
 
-						// TODO DANILO Restore previous number of cores -> ENRICO DONE
-						application_i->currentCores_d = application_i->currentCores_d - DELTAVM_i*application_i->V;
-						application_j->currentCores_d = application_j->currentCores_d + DELTAVM_j*application_j->V;
+
 					}
+					// TODO DANILO Restore previous number of cores -> ENRICO DONE
+					application_i->currentCores_d = application_i->currentCores_d - DELTAVM_i*application_i->V;
+					application_j->currentCores_d = application_j->currentCores_d + DELTAVM_j*application_j->V;
 				}
 			application_j = application_j->next;
 			}
 		application_i = application_i->next;
 		}
 
+	*iteration = record;
 	return sfirstAuxApproximated;
 }
 
 
+
 /*
- * 		Name:					invokePredictor
+ * 		Name:					MPI_invokePredictor
  * 		Input parameters:		int nNodes, int nCores, char * memory, int datasize,  char *appId
  * 		Output parameters:		The output from Predictor predictor
  * 		Description:			This function works on one data log folder only, whose path can be found in wsi_config.xml file with the the keyword "FAKE".
@@ -130,6 +136,91 @@ sAux * approximatedLoop(sList *first_i )
  *
  */
 
+
+
+char* MPI_InvokePredictor_2(int nNodes, int currentCores_i, int currentCores_j, char * memory, int datasize,  char *appId_i, char *appId_j, double *outi, double *outj)
+{
+	char parameters[1024];
+		char cmd[1024];
+		//char mvCmd[1024];
+		char path[1024];
+		char lua_i[1024], lua_j[1024];
+		char subfolder[1024];
+		char *output1 = (char *)malloc(64);
+		char *output2 = (char *)malloc(64);
+
+
+		/*
+		 * Prepare the data
+		 */
+
+		char dir[1024];
+
+		if (currentCores_i <= 0)
+		{
+			printf("Fatal Error: Cannot invoke predictor on negative  or zero number of cores: currentCores_i = %d currentCores_j = %d\n", currentCores_i, currentCores_j);
+			exit(-1);
+		}
+
+		/* Consider always the same folder
+		 This is possible because the variance between the log folders is small*/
+		strcpy(path, parseConfigurationFile("FAKE", 1));
+		strcpy(dir, readFolder(path));
+
+		//sprintf(mvCmd, "cd %s;mv %s %d_%d_%s_%d", path, dir, nNodes, currentCores, memory, datasize);
+
+		//_run(mvCmd);
+
+		switch(PREDICTOR)
+		{
+			case LUNDSTROM:
+				sprintf(parameters, "%d %d %s %d %s", nNodes, currentCores_i, memory, datasize, appId_i);
+				sprintf(cmd, "cd %s;python run.py %s", parseConfigurationFile("LUNDSTROM_HOME", 1), parameters);
+				break;
+			case DAGSIM:
+				_run(MPI_PrepareCmd(path, subfolder, appId_i, lua_i, 0));
+				_run(MPI_PrepareCmd(path, subfolder, appId_j, lua_j, 1));
+
+
+				/* Update the number of nodes in the lua file
+				 * calculated as nNodes * nCores
+				 * line=$(cat $LUA$LUA_FILENAME|grep "Nodes = ")
+	        		sed -i "s/$line/Nodes = @@nodes@@;/g" $LUA$LUA_FILENAME
+				 *
+				 */
+
+				/* Prepare the lua files */
+				/* TODO The passage of LUA files is too vague. Needs to be sure that the sed operation is performed in the correct file */
+				 //sprintf(cmd, "line=$(cat %s|grep \"Nodes = \");sed -i \"s/$line/Nodes = %d;/g\" %s", lua, (nNodes*currentCores), lua);
+				//printf("MPI_Invoke %d e %d\n", currentCores_i, currentCores_j);
+				sprintf(cmd, "line=$(cat /tmp/test1.lua|grep \"Nodes = \");sed -i \"s/$line/Nodes = %d;/g\" /tmp/test1.lua",  (nNodes*currentCores_i));_run(cmd);
+				sprintf(cmd, "line=$(cat /tmp/test0.lua|grep \"Nodes = \");sed -i \"s/$line/Nodes = %d;/g\" /tmp/test0.lua",  (nNodes*currentCores_j));_run(cmd);
+
+				/* Execute two instances of dagSim in parallel  */
+				sprintf(cmd, "cd %s;mpiexec -np 2  a.out /tmp/test", parseConfigurationFile("MPI_HOME", 1));
+				_run(cmd);
+
+				*outi = atof(MPI_prepareOutput(0));
+				*outj = atof(MPI_prepareOutput(1));
+
+				printf("%lf %lf\n", *outi, *outj);
+				//printf("%s\n", output1);
+				break;
+		}
+
+
+
+		//strcpy(output1, _run(cmd));
+		//printf("Cores: %d %s\n", nCores, output);
+
+		return output1;
+
+}
+
+
+
+
+
 char* invokePredictor(int nNodes, int currentCores, char * memory, int datasize,  char *appId)
 {
 	char parameters[1024];
@@ -138,8 +229,8 @@ char* invokePredictor(int nNodes, int currentCores, char * memory, int datasize,
 	char path[1024];
 	char lua[1024];
 	char subfolder[1024];
-	char *output = (char *)malloc(1024);
-
+	char *output1 = (char *)malloc(64);
+	char *output2 = (char *)malloc(64);
 
 
 	/*
@@ -169,7 +260,7 @@ char* invokePredictor(int nNodes, int currentCores, char * memory, int datasize,
 			sprintf(cmd, "cd %s;python run.py %s", parseConfigurationFile("LUNDSTROM_HOME", 1), parameters);
 			break;
 		case DAGSIM:
-			sprintf(path, "%s/1_X_8G_500/%s/logs", parseConfigurationFile("FAKE", 1), appId);
+			sprintf(path, "%s/%s/logs", parseConfigurationFile("FAKE", 1), appId);
 
 			strcpy(subfolder, readFolder(path));
 			sprintf(cmd, "ls %s/%s/*.lua", path, subfolder);
@@ -186,20 +277,29 @@ char* invokePredictor(int nNodes, int currentCores, char * memory, int datasize,
 			 *
 			 */
 
+
 			sprintf(cmd, "line=$(cat %s|grep \"Nodes = \");sed -i \"s/$line/Nodes = %d;/g\" %s", lua, (nNodes*currentCores), lua);
 			 _run(cmd);
-			 //printf("%s \n", cmd);
-			sprintf(cmd, "cd %s;./dagsim.sh %s|head -n1|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
-			//printf("%s dagSim was executed on %d nodes (%d x %d) \n", cmd, (nNodes*currentCores), nNodes, currentCores);
+
+
+			sprintf(cmd, "cd %s;./dagsim.sh %s|head -n2|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
+			strcpy(output1, _run(cmd));
+			sprintf(cmd, "cd %s;./dagsim.sh %s|head -n3|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
+			strcpy(output2, _run(cmd));
+			sprintf(output1, "%d", atoi(output2) - atoi(output1));
+
+			// sprintf(cmd, "cd %s;./dagsim.sh %s|head -n1|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
+
+
 			break;
 	}
 
 
 
-	strcpy(output, _run(cmd));
+	//strcpy(output1, _run(cmd));
 	//printf("Cores: %d %s\n", nCores, output);
 
-	return output;
+	return output1;
 }
 
 
@@ -219,63 +319,69 @@ char* invokePredictor(int nNodes, int currentCores, char * memory, int datasize,
 void  Bound(sList * pointer)
 {
 
-	printf("Bound evaluation \n");
+
 	int predictorOutput;
 
 	int BTime = 0;
 	int BCores = 0;
 	int STEP = pointer->V;
-	pointer->currentCores_d=pointer->nCores_DB_d;
+	int nCores;
+	int nNodes = 1; // Tenporary fix
+
+	pointer->currentCores_d = pointer->nCores_DB_d;
 /*
 	int a=pointer->currentCores_d ;
 	int b= pointer->V;
 */
-	pointer->currentCores_d =( (int) ( pointer->currentCores_d / pointer->V) ) * pointer->V;
 
-	double nCores = pointer->currentCores_d;
-	int nNodes = 1; // Tenporary fix
-
-
-	// Danilo 27/7/2017
-	predictorOutput = atoi(invokePredictor( nNodes, nCores, "8G", pointer->datasetSize, pointer->app_id));
-	pointer->sAB.index = 0;
-	pointer->sAB.vec[pointer->sAB.index].nCores = nCores;
-	pointer->sAB.vec[pointer->sAB.index].R = predictorOutput;
-	pointer->sAB.index++;
-	// End Danilo
-
-
-	BTime = predictorOutput;
-	//nCores = ceil(nCores / pointer->V ) * pointer->V;
-
-	//printf("Calculate Bound for %s: R %d D %d\n", appId, predictorOutput, deadline);
-	if (predictorOutput > pointer->Deadline_d)
-	while (predictorOutput > pointer->Deadline_d)
+	pointer->currentCores_d = ( (int) ( pointer->currentCores_d / pointer->V) ) * pointer->V;
+	if (pointer->currentCores_d > 0 && pointer->currentCores_d != pointer->V)
 	{
+		nCores = pointer->currentCores_d;
 
-		//printf("(up) time = %d Rnew =%d\n", time, BTime);
 
-		nCores = nCores + STEP;
 
-		printf("Bound evaluation, appid %s, Step %d, evaluating %lf\n", pointer->app_id, STEP, nCores);
+		printf("Bound evaluation for %s  cores %d\n", pointer->app_id, nCores);
 		predictorOutput = atoi(invokePredictor( nNodes, nCores, "8G", pointer->datasetSize, pointer->app_id));
-		BCores = nCores;
-		BTime = predictorOutput;
-
 		// Danilo 27/7/2017
+		pointer->sAB.index = 0;
 		pointer->sAB.vec[pointer->sAB.index].nCores = nCores;
 		pointer->sAB.vec[pointer->sAB.index].R = predictorOutput;
-		pointer->sAB.index = pointer->sAB.index % HYP_INTERPOLATION_POINTS;
+		pointer->sAB.index++;
 		// End Danilo
 
-	}
-	else
-		while (predictorOutput < pointer->Deadline_d)
-		{
+
+		BTime = predictorOutput;
+		//nCores = ceil(nCores / pointer->V ) * pointer->V;
+
+		//printf("Calculate Bound for %s: R %d D %d\n", appId, predictorOutput, deadline);
+		if (predictorOutput > pointer->Deadline_d)
+			while (predictorOutput > pointer->Deadline_d)
+			{
+
+				//printf("(up) time = %d Rnew =%d\n", time, BTime);
+
+				nCores = nCores + STEP;
+
+				printf("Bound evaluation, appid %s, Step %d, evaluating %d\n", pointer->app_id, STEP, nCores);
+				predictorOutput = atoi(invokePredictor( nNodes, nCores, "8G", pointer->datasetSize, pointer->app_id));
+				BCores = nCores;
+				BTime = predictorOutput;
+
+				// Danilo 27/7/2017
+				pointer->sAB.vec[pointer->sAB.index].nCores = nCores;
+				pointer->sAB.vec[pointer->sAB.index].R = predictorOutput;
+				pointer->sAB.index = pointer->sAB.index % HYP_INTERPOLATION_POINTS;
+				// End Danilo
+
+			}
+		else
+			while (predictorOutput < pointer->Deadline_d)
+			{
 				BCores = nCores;
 				BTime = predictorOutput;
 				nCores = nCores - STEP;
-			    printf("Bound evaluation, appid %s, evaluating %lf\n", pointer->app_id, nCores);
+			    printf("Bound evaluation, appid %s, evaluating %d\n", pointer->app_id, nCores);
 
 				if (nCores <= 0)
 				{
@@ -289,8 +395,20 @@ void  Bound(sList * pointer)
 				pointer->sAB.index = pointer->sAB.index % HYP_INTERPOLATION_POINTS;
 
 				//printf("(down) time = %d Rnew =%d\n", time, BTime);
-		}
+			}
+	}
+	else
+	{
+		/* In this case, either the number of cores is 1 or equal to V */
+		if (pointer->currentCores_d == 0) BCores = 1; else BCores = pointer->currentCores_d;
+		printf("Bound evaluation for %s  cores %d\n", pointer->app_id, BCores);
+		BTime = atoi(invokePredictor( nNodes, BCores, "8G", pointer->datasetSize, pointer->app_id));
 
+	}
+
+	/* Update the record with bound values */
+
+	pointer->currentCores_d = BCores;
 	pointer->R_d = BTime;
 	pointer->bound_d = BCores;
 	printf("D = %lf R = %lf  bound = %lf\n", pointer->Deadline_d, pointer->R_d, pointer->bound_d);
@@ -316,17 +434,21 @@ float computeBeta(sAlphaBetaManagement sAB)
 	return ((double) sAB.vec[1].nCores) / (sAB.vec[0].nCores - sAB.vec[1].nCores) * (((double) sAB.vec[0].nCores)/sAB.vec[1].nCores * sAB.vec[0].R - sAB.vec[1].R);
 }
 
-int ObjFunctionGlobal(sList * pointer)
+double ObjFunctionGlobal(sList * pointer)
 {
-	int sum = 0;
+	double sum = 0;
 
+	if (pointer == NULL)
+	{
+		printf("Warning: NULL pointer in ObjFunctionGlobal\n");
+	}
 	while (pointer != NULL)
 	{
 		sum = sum + ObjFunctionComponent(pointer);
 		pointer = pointer->next;
 	}
 
-	if (sum == 0)
+	if (doubleCompare(sum, 0) == 0)
 	{
 		printf("Warning in ObjFunctionGlobal: sum equal to zero\n");
 		//exit(-1);
@@ -334,12 +456,62 @@ int ObjFunctionGlobal(sList * pointer)
 
 	return sum;
 }
+
+
+/*
+ * 		Name:						MPI_ObjFunctionComponent
+ * 		Input parameters:			The pointer to the applications list
+ * 		Output parameters:			The contribution to the calculation of the objective function
+ * 		Description:				Currently, only two methods are supported. Note that the algorithm's choice is stored in the "mode" field
+ * 									of the application structure.
+ *
+ */
+
+void MPI_ObjFunctionComponent(sList * pointer_i, sList * pointer_j, double *output1, double *output2)
+{
+
+
+	double out_i, out_j;
+
+	if (pointer_i == NULL || pointer_j == NULL)
+	{
+		printf("ObjFunctionComponent failure: NULL pointer\n");
+		exit(-1);
+	}
+
+
+
+	atof(MPI_InvokePredictor_2( 1, pointer_i->currentCores_d, pointer_j->currentCores_d, "8G", pointer_i->datasetSize, pointer_i->app_id, pointer_j->app_id, &out_i, &out_j));
+
+	pointer_i->R_d = out_i;
+	pointer_j->R_d = out_j;
+
+	//printf("ObjFunctionComponent: App_id %s w %f R %d D %d nCores %d newCores %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D, pointer->cores, pointer->newCores);
+
+	printf("W %lf R_d %lf D %lf\n", pointer_i->w, pointer_i->R_d, pointer_i->Deadline_d);
+
+	if (pointer_i->R_d > pointer_i->Deadline_d) *output1 = pointer_i->w * (pointer_i->R_d - pointer_i->Deadline_d);
+				else *output1 = 0;
+	printf("Compute FO for app %s currentCores_d %d  R %lf FO=%lf\n", pointer_i->app_id, pointer_i->currentCores_d, pointer_i->R_d, *output1);
+
+	if (pointer_j->R_d > pointer_j->Deadline_d) *output2 = pointer_j->w * (pointer_j->R_d - pointer_j->Deadline_d);
+					else *output2 = 0;
+	printf("Compute FO for app %s currentCores_d %d  R %lf FO=%lf\n", pointer_j->app_id, pointer_j->currentCores_d, pointer_j->R_d, *output2);
+
+
+}
+
+
+
+
+
+
 /*
  * 		Name:						ObjFunctionComponent
  * 		Input parameters:			The pointer to the applications list
  * 		Output parameters:			The contribution to the calculation of the objective function
  * 		Description:				Currently, only two methods are supported. Note that the algorithm's choice is stored in the "mode" field
- * 									of the application structure.
+ * 									of ethe application structure.
  *
  */
 
@@ -356,7 +528,7 @@ int ObjFunctionComponent(sList * pointer)
 	}
 
 
-	pointer->R_d = atof(invokePredictor( 1, (int)pointer->currentCores_d, "8G", pointer->datasetSize, pointer->app_id));
+	pointer->R_d = atof(invokePredictor( 1, pointer->currentCores_d, "8G", pointer->datasetSize, pointer->app_id));
 	//printf("ObjFunctionComponent: App_id %s w %f R %d D %d nCores %d newCores %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D, pointer->cores, pointer->newCores);
 
 	/* Determine how the obj function needs to be calculated */
@@ -447,6 +619,11 @@ void findBound(MYSQL *conn, char *db,  sList *pointer)
                         , db, pointer->app_id, pointer->datasetSize, pointer->Deadline_d);
 
     pointer->nCores_DB_d = executeSQL(conn, statement);
+    if (pointer->nCores_DB_d <= 0)
+    {
+    	printf("Fatal Error: findBound: cores number from DB cannot be zero\n");
+    	exit(-1);
+    }
 
     Bound(pointer);
     /*
@@ -457,6 +634,8 @@ void findBound(MYSQL *conn, char *db,  sList *pointer)
 			&(pointer->bound_d),
 			pointer->V);
 			*/
+
+    /* Compute baseFO */
 
 	pointer->mode = R_ALGORITHM;pointer->baseFO = ObjFunctionComponent(pointer);
 
@@ -479,10 +658,12 @@ void localSearch(sList * application_i, int n, int MAX_PROMISING_CONFIGURATIONS)
 
 
 	int nCoreMov;
+	int stop = 0;
 	double DELTAVM_i, DELTAVM_j;
 	double DELTA_fo_App_i, DELTA_fo_App_j;
 	sAux * minAux;
 
+	sStatistics *firstS = NULL, *currentS = NULL;
 
 	char *app_id_i, *app_id_j;
 
@@ -500,23 +681,24 @@ void localSearch(sList * application_i, int n, int MAX_PROMISING_CONFIGURATIONS)
 		}
 
 	printf("\n\nLocalsearch\n");
-	if (GLOBAL_PRINT == YES) printf("Global obj function %d\n", ObjFunctionGlobal(first_i));
+	if (GLOBAL_PRINT == YES) printf("Global obj function %lf\n", ObjFunctionGlobal(first_i));
 
 
 
 int index = 0;
-for (int i = 1; i <= MAX_ITERATIONS; i++){
-	printf("ITERATION %d\n", i);
+double TotalFO;
+double output_i, output_j;
+int how_many;
+for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
+	printf("ITERATION %d\n", iteration);
 
 	//sfirstAuxApproximated = approximatedLoop(first_i,  sfirstAuxApproximated);
-	sfirstAuxApproximated = approximatedLoop(first_i  );
+	sfirstAuxApproximated = approximatedLoop(first_i, &how_many );
 
 	printf("\n\n ************************************** Ex-iteration loop ***********************************************************************\n");
 
 		while (sfirstAuxApproximated != NULL )
 		{
-
-
 			strcpy(app_id_i, sfirstAuxApproximated->app1->app_id);
 			strcpy(app_id_j, sfirstAuxApproximated->app2->app_id);
 			application_i = searchApplication(first_i, app_id_i);
@@ -552,10 +734,16 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 				* Call object function evaluation
 				*/
 
+				/*
 				DELTA_fo_App_i = ObjFunctionComponent(application_i) - application_i->baseFO; printf("app %s DELTA_fo_App_i %lf\n",
 						application_i->app_id, DELTA_fo_App_i);
 				DELTA_fo_App_j = ObjFunctionComponent(application_j) - application_j->baseFO;printf("app %s DELTA_fo_App_j %lf\n",
 						application_j->app_id, DELTA_fo_App_j);
+				 */
+				MPI_ObjFunctionComponent(application_i, application_j, &output_i, &output_j);
+				printf("Richiamato dagsim su %d e %d\n", application_i->currentCores_d, application_j->currentCores_d);
+				DELTA_fo_App_i = output_i - application_i->baseFO; printf("app %s DELTA_fo_App_i %lf\n",application_i->app_id, DELTA_fo_App_i);
+				DELTA_fo_App_j = output_j - application_j->baseFO; printf("app %s DELTA_fo_App_j %lf\n",application_j->app_id, DELTA_fo_App_j);
 
 
 				// DANILO Store total delta complessivo and number of cores into auxiliary list -> ENRICO DONE
@@ -572,10 +760,11 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 							DELTAVM_j
 							);
 
-				// DANILO restore previous number of cores -> ENRICO DONE
-				application_i->currentCores_d = application_i->currentCores_d - DELTAVM_i*application_i->V;
-				application_j->currentCores_d = application_j->currentCores_d + DELTAVM_j*application_j->V;
+
 			}
+			// DANILO restore previous number of cores -> ENRICO DONE
+			application_i->currentCores_d = application_i->currentCores_d - DELTAVM_i*application_i->V;
+			application_j->currentCores_d = application_j->currentCores_d + DELTAVM_j*application_j->V;
 			sfirstAuxApproximated = sfirstAuxApproximated->next;
 
 		}
@@ -590,36 +779,53 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 
 	if ((firstAux ==NULL || index == MAX_PROMISING_CONFIGURATIONS))
 	{
-		printf("Auxiliary list empty or MAX_PROMISING_CONFIGURATIONS has been reached. Optimization terminated.\n");// Se non c'è minimo vuol dire che non c'è migliorante usciamo dal ciclo
+		printf("Auxiliary list empty or MAX_PROMISING_CONFIGURATIONS has been reached. Optimization terminated.\n");
 		freeAuxList(sfirstAuxApproximated);
 		freeAuxList(firstAux);
 		firstAux = NULL;
 		currentAux = NULL;
-		return;
+		stop = 1;
 	}
-	index++;
-	// TODO DANILO assign number of cores to the applications
-	commitAssignment(first_i, minAux->app1->app_id, minAux->delta_i); // application i
-	commitAssignment(first_i, minAux->app2->app_id, -minAux->delta_j); // application j
 
-	if (GLOBAL_PRINT == YES) printf("Global obj function %d\n", ObjFunctionGlobal(first_i));
+	printf("****************************************************\n");
+	if (GLOBAL_PRINT == YES)
+	{
+		printf("Calculating Global FO:\n");
+		TotalFO = ObjFunctionGlobal(first_i);
+		printf("Global obj function %lf\n", TotalFO);
+	}
 
-	// TODO Modify to recalculate only FO for apps i,j (use the above copies without invoke dagSim)
-	initialize(first_i);
+	/* Update Statistics */
+	addStatistics(&firstS, &currentS, iteration, how_many, TotalFO);
 
 	printf("Destroy Aux list\n");
 
 	// DESTROY Auxiliary lists and prepare it for a new run
 
-	freeAuxList(sfirstAuxApproximated);
+	//if (sfirstAuxApproximated) freeAuxList(sfirstAuxApproximated);
+
 	freeAuxList(firstAux);
 	firstAux = NULL;
 	currentAux = NULL;
 
+	if (stop) break;
+
+	index++;
+	// TODO DANILO assign number of cores to the applications
+	commitAssignment(first_i, minAux->app1->app_id, minAux->delta_i); // application i
+	commitAssignment(first_i, minAux->app2->app_id, -minAux->delta_j); // application j
+
+
+
+	// TODO Modify to recalculate only FO for apps i,j (use the above copies without invoke dagSim)
+	initialize(first_i);
+
+
+
 	/* Prepare applications list for a new run */
 	//application_i = first_i;
 
-	// TODO DANILO sum the assigned core and commpare with N
+	// TODO DANILO sum the assigned core and compare with N
 /*
 	if (!checkTotalCores(first_i, n))
 	{
@@ -627,9 +833,11 @@ for (int i = 1; i <= MAX_ITERATIONS; i++){
 
 	}
 	*/
-	printf("****************************************************\n");
-}
 
+}
+readStatistics(firstS);
+
+freeStatisticsList(firstS);
 }
 
 

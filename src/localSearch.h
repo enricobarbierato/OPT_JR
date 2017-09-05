@@ -29,10 +29,10 @@ char* invokeLundstrom(int , int , char * , int ,  char *);
 float computeBeta(sAlphaBetaManagement );
 float computeAlpha(sAlphaBetaManagement , float );
 void initialize(sList *);
-int ObjFunctionGlobal(sList *);
+double ObjFunctionGlobal(sList *);
 int ObjFunctionComponent(sList * );
 int ObjFunctionComponentApprox(sList * );
-sAux * approximatedLoop(sList * );
+sAux * approximatedLoop(sList *, int * );
 
 char *readFolder(char *);
 #endif /* SRC_LOCALSEARCH_H_ */

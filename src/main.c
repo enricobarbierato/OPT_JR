@@ -40,7 +40,11 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 		first->currentCores_d = ((int)(first->currentCores_d / first->V)) * first->V;
 		if (first->currentCores_d > first->bound_d)
 			first->currentCores_d = first->bound_d;
-		else addListPointers(&first_LP, first);
+		else
+			{
+				printf("adding %s to ListPointers\n", first->app_id);
+				addListPointers(&first_LP, first);
+			}
 
 		// Danilo Application (suffering) insert in the new list
 		// TODO Handle insert in such a way the list is sorted by weight -> DONE
@@ -49,11 +53,14 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 
 		first = first->next;
 	}
-	readListPointers(first_LP);
+	//readListPointers(first_LP);
 
 	printf("fixInitialSolution: allocatedCores %d\n", allocatedCores);
 
 	auxPointer = first_LP;
+
+
+
 	residualCores = N - allocatedCores;
 
 	while (!loopExit)
@@ -64,16 +71,17 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 			// cores assignment
 
 			int addedCores = MIN(((int)(residualCores / auxPointer->app->V) )* auxPointer->app->V, auxPointer->app->bound_d);
-			auxPointer->app->currentCores_d+= addedCores;
+			if ((auxPointer->app->currentCores_d + addedCores) > 0)
+			{
+				auxPointer->app->currentCores_d+= addedCores;
 
-			printf("adding cores to App %s, %d \n", auxPointer->app->app_id, addedCores);
+				printf("adding cores to App %s, %d \n", auxPointer->app->app_id, addedCores);
 
-			printf(" applicationid %s new cores %d moved cores %d\n", auxPointer->app->app_id, (int)auxPointer->app->currentCores_d, addedCores);
+				printf(" applicationid %s new cores %d moved cores %d\n", auxPointer->app->app_id, (int)auxPointer->app->currentCores_d, addedCores);
 
-
+				residualCores = residualCores - addedCores;
+			}
 			auxPointer = auxPointer->next;
-			residualCores = residualCores - addedCores;
-
 		}
 
 		if (residualCores == 0) loopExit = 1;
@@ -106,6 +114,13 @@ int main(int argc, char **argv)
      * Check Usage
      */
     if (argc < 4) Usage();
+
+
+    // Calculate the time taken
+    clock_t t;
+    t = clock();
+
+
 
 
     /*
@@ -215,6 +230,11 @@ int main(int argc, char **argv)
     freeApplicationList(firstPointer);
     free(app_id);
     DBclose(conn);
+
+    t = clock() - t;
+    double time_taken = ((double)t)/CLOCKS_PER_SEC; // Convert everything in seconds
+
+   printf("Elapsed time %f seconds %f ticks\n", time_taken, (double)t);
 
     // This return code is tested by the caller
     // Any value different than 0 will fire an exception

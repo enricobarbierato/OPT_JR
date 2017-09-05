@@ -80,6 +80,14 @@ struct ListPointers
 
 typedef struct ListPointers sListPointers;
 
+struct Statistics
+{
+	int iteration;
+	int size;
+	double FO_Total;
+	struct Statistics *next;
+};
+typedef struct Statistics sStatistics;
 
 
 
@@ -101,6 +109,9 @@ typedef struct aux sAux;
 /*
  * Function templates
  */
+void readStatistics(sStatistics *);
+void freeStatisticsList(sStatistics * );
+void addStatistics(sStatistics ** , sStatistics ** , int , int, double );
 void freeParametersList(sList * pointer);
 void freeApplicationList(sListPointers * pointer);
 void readList(sList *);

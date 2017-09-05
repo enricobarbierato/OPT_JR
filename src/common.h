@@ -34,6 +34,7 @@ struct Best
 
 /* Templates */
 
+char * MPI_PrepareCmd(char * , char * , char *, char * , int);
 double max(double, double);
 int doubleCompare(double, double);
 double getCsi(double , double );
@@ -45,5 +46,6 @@ char * getfield(char* , int);
 void Usage();
 void howAmIInvoked(char **, int );
 char * LundstromPredictor(int , char * );
+char * MPI_prepareOutput(int index);
 
 #endif /* SRC_COMMON_H_ */

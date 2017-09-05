@@ -235,9 +235,30 @@ void freeParametersList(sList * pointer)
 void freeAuxList(sAux * pointer)
 {
 	sAux * next;
+	if (pointer == NULL) return;
 
 	while (pointer != NULL)
 	    {
+	       next = pointer;
+	       pointer = pointer->next;
+	       if (next != NULL) free(next);
+	    }
+}
+
+
+void freeStatisticsList(sStatistics * pointer)
+{
+	sStatistics * next;
+
+	if (pointer == NULL)
+	{
+		printf("Warning: Statistics list is empty\n");
+		return;
+	}
+	printf("Statistics (4)\n");
+	while (pointer != NULL)
+	    {
+		//if (pointer->app != NULL) free(pointer->app);
 	       next = pointer;
 	       pointer = pointer->next;
 	       if (next != NULL) free(next);
@@ -349,7 +370,51 @@ void addAuxParameters(sAux ** first, sAux ** current,  sList * app1, sList * app
 	 	 	 			 }
 }
 
+/*
+ * 		Name:					addStatistics
+ * 		Input parameters:		sStatistics ** first, sStatistics ** current, int iteration, int how_many
+ * 		Output parameters:		current pointer to the list
+ * 		Description:			This function adds a new statistics (iteration_id, number of candidates found by hyperbolic approximation
+ *
+ */
+void addStatistics(sStatistics ** first, sStatistics ** current, int iteration, int how_many, double total)
+{
 
+
+	  sStatistics *new = (sStatistics*) malloc(sizeof(sStatistics));
+	  if (new == NULL)
+	  {
+		  printf("addAuxParameters: Fatal Error: malloc failure\n");
+		  exit(-1);
+	  }
+
+
+
+	  new->iteration = iteration;
+	  new->size = how_many;
+	  new->FO_Total = total;
+	  new->next = NULL;
+
+
+	  if (*first == NULL) *first = new;
+	  else (*current)->next = new;
+	  *current = new;
+
+
+}
+
+void readStatistics(sStatistics *pointer)
+{
+	printf("\n\nStatistics list content:\n");
+
+	printf("Iteration   List Size  Total FO\n");
+	while (pointer!=NULL)
+	{
+		printf("%d %d %lf\n", pointer->iteration, pointer->size, pointer->FO_Total);
+		pointer = pointer->next;
+	}
+	printf("\n");
+}
 
 void addListPointers(sListPointers ** first,   sList *application)
 {

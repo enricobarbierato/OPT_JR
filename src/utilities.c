@@ -316,6 +316,46 @@ FILE * fp;
 }
 
 
+
+char * MPI_PrepareCmd(char * path, char * subfolder, char *appId, char * lua, int index)
+{
+	char *cmd = (char *)malloc(1024);
+
+
+	sprintf(path, "%s/%s/logs", parseConfigurationFile("FAKE", 1), appId);printf("%s", path);
+	strcpy(subfolder, readFolder(path));
+	sprintf(cmd, "ls %s/%s/*.lua", path, subfolder);
+	strcpy(lua, _run(cmd));
+	/* Remove /n from the lua filename */
+	lua[strlen(lua)-1] = '\0';
+	sprintf(cmd, "cp %s /tmp/test%d.lua", lua, index);
+
+	return cmd;
+}
+
+char * MPI_prepareOutput(int index)
+{
+	char cmd[1024];
+	char *output1, output2[64];
+
+	output1 = (char *)malloc(64);
+
+	sprintf(cmd, "cat /tmp/output%d|head -n1|awk '{print $3;}'", index);
+
+
+	strcpy(output1, _run(cmd));
+	sprintf(cmd, "cat /tmp/output%d|head -n3|awk '{print $3;}'", index);
+	strcpy(output2, _run(cmd));
+	sprintf(output1, "%d", atoi(output2) - atoi(output1));
+
+	/*
+	sprintf(cmd, "cat /tmp/output%d|head -n1|awk '{print $3;}'", index);
+	strcpy(output1, _run(cmd));
+*/
+	return output1;
+}
+
+
 /*
  * 		Name:					bestMatch
  * 		Input parameters:		char * path, int nValue
