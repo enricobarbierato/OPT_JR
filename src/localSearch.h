@@ -23,15 +23,15 @@
 #define DAGSIM 1
 
 
-void  Bound(sList *pointer);
-void calculate_Nu(MYSQL *, char * , sList *, int);
+void  Bound(MYSQL *conn, sList *);
+void  calculate_Nu(MYSQL *, char * , sList *, int);
 char* invokeLundstrom(int , int , char * , int ,  char *);
 float computeBeta(sAlphaBetaManagement );
 float computeAlpha(sAlphaBetaManagement , float );
-void initialize(sList *);
-double ObjFunctionGlobal(sList *);
-int ObjFunctionComponent(sList * );
-int ObjFunctionComponentApprox(sList * );
+void  initialize(MYSQL *conn, sList *);
+double ObjFunctionGlobal(MYSQL *conn, sList *);
+int   ObjFunctionComponent(MYSQL *, sList * );
+int   ObjFunctionComponentApprox(sList * );
 sAux * approximatedLoop(sList *, int * );
 
 char *readFolder(char *);

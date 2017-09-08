@@ -27,7 +27,7 @@ int executeSQL(MYSQL *conn, char *statement)
 
 	if (conn == NULL)
 	  {
-	      fprintf(stderr, "DBError: %s\n", mysql_error(conn));
+	      fprintf(stderr, "DBError: %s %s\n", statement, mysql_error(conn));
 	      exit(1);
 	  }
 

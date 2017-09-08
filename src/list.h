@@ -60,12 +60,22 @@ struct List
     float beta;					/* Second parameter for Hyperbolic interpolation */
     sAlphaBetaManagement sAB;
 
+    int boundIterations;		/* Metrics */
+
 	struct List *next;
 };
 typedef struct List sList;
 
 
-
+struct PredictorCash
+{
+	char app_id[1024];
+	int ncores;
+	int datasize;
+	double output;
+	struct PredictorCash *next;
+};
+typedef struct PredictorCash sPredictorCash;
 
 // The element corresponding to the event
 
@@ -109,6 +119,11 @@ typedef struct aux sAux;
 /*
  * Function templates
  */
+
+void addCacheParameters(sPredictorCash ** , sPredictorCash ** ,  char * , int , int , double );
+void printCacheParameters(sPredictorCash * );
+double searchCacheParameters(sPredictorCash * , char * , int , int );
+
 void readStatistics(sStatistics *);
 void freeStatisticsList(sStatistics * );
 void addStatistics(sStatistics ** , sStatistics ** , int , int, double );

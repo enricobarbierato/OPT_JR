@@ -47,5 +47,6 @@ void Usage();
 void howAmIInvoked(char **, int );
 char * LundstromPredictor(int , char * );
 char * MPI_prepareOutput(int index);
+double elapsedTime(struct timeval , struct timeval );
 
 #endif /* SRC_COMMON_H_ */

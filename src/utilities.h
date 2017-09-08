@@ -9,6 +9,7 @@
 #define UTILITIES_H_
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
 
 
 #include "common.h"

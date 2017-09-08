@@ -45,6 +45,7 @@ void addParameters(sList ** first,   sList ** current, char * app_id, double w, 
 	  new->v = v;
 	  new->Deadline_d = Deadline_d;
 	  new->csi = csi;
+	  new->boundIterations = 0;
 
 	  new->stage = (char *)malloc(1024);
 	  if (new->stage == NULL)
@@ -149,7 +150,7 @@ void printRow(sList *pointer)
 			pointer->currentCores_d,
 			pointer->nCores_d);
 			*/
-	printf("app_id %s  weight %lf nu %d currentcores = %d nCores from DB = %d \n\n", pointer->app_id, pointer->w, (int)pointer->nu_d, (int)pointer->currentCores_d, (int)pointer->nCores_DB_d);
+	printf("app_id %s  weight %lf nu %d iterations to find the bound %d currentcores = %d nCores from DB = %d \n\n", pointer->app_id, pointer->w, pointer->nu_d, pointer->boundIterations, pointer->currentCores_d, (int)pointer->nCores_DB_d);
 }
 
 void commitAssignment(sList *pointer, char *appId,  double DELTA)
@@ -255,7 +256,7 @@ void freeStatisticsList(sStatistics * pointer)
 		printf("Warning: Statistics list is empty\n");
 		return;
 	}
-	printf("Statistics (4)\n");
+	printf("Statistics \n");
 	while (pointer != NULL)
 	    {
 		//if (pointer->app != NULL) free(pointer->app);
@@ -368,6 +369,78 @@ void addAuxParameters(sAux ** first, sAux ** current,  sList * app1, sList * app
 	 	 	 				 previous->next = new;
 	 	 	 				 new->next = current;
 	 	 	 			 }
+}
+
+
+/*
+ * 		Name:					addCacheParameters
+ * 		Input parameters:		sPredictorCash ** first, sPredictorCash ** current,  int nCores, int datasize, double output
+ * 		Output parameters:		Updated pointers to the first and current element of the list
+ * 		Description:			This function adds all the information regarding the localSearch deltafo calculation
+ *
+ */
+void addCacheParameters(sPredictorCash ** first, sPredictorCash ** current,  char * app_id, int nCores, int datasize, double output)
+{
+
+	sPredictorCash *new = (sPredictorCash*) malloc(sizeof(sPredictorCash));
+	  if (new == NULL)
+	  {
+		  printf("addsPredictorCashParameters: Fatal Error: malloc failure\n");
+		  exit(-1);
+	  }
+	  strcpy(new->app_id, app_id);
+	  new->ncores = nCores;
+	  new->datasize = datasize;
+	  new->output = output;
+	  new->next = NULL;
+
+/*
+	  if (*first == NULL) *first = new;
+	  else (*current)->next = new;
+	  *current = new;*/
+
+	  if (*first == NULL) *first = new;
+	 	 	 	  else
+	 	 	 		  if (doubleCompare((*first)->output, output) == 1)
+	 	 	 		  {
+	 	 	 			  new->next = *first;
+	 	 	 			  *first = new;
+	 	 	 		  }
+	 	 	 		  	 else
+	 	 	 			 {
+	 	 	 		  		 sPredictorCash * previous = *first;
+	 	 	 		  		 sPredictorCash * current = (*first)->next;
+
+	 	 	 				 while (current != NULL && doubleCompare(current->output, output) == -1)
+	 	 	 				 {
+	 	 	 					 previous = current;
+	 	 	 					 current = current->next;
+	 	 	 				 }
+
+	 	 	 				 previous->next = new;
+	 	 	 				 new->next = current;
+	 	 	 			 }
+}
+
+void printCacheParameters(sPredictorCash * pointer)
+{
+	while (pointer != NULL)
+	{
+		printf("app_id %s nCores %d datasize %d  output %lf\n", pointer->app_id, pointer->ncores, pointer->datasize, pointer->output);
+		pointer = pointer->next;
+	}
+}
+
+double searchCacheParameters(sPredictorCash * pointer, char * app_id, int nCores, int datasize)
+{
+	while (pointer != NULL)
+		if (strcmp(pointer->app_id, app_id) == 0 && pointer->ncores == nCores && pointer->datasize == datasize)
+			return(pointer->output);
+		else pointer = pointer->next;
+
+	/* The parameter was not found */
+	return -1;
+
 }
 
 /*

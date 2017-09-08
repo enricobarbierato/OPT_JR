@@ -117,7 +117,13 @@ struct Best best;
 void Usage()
 {
     	printf("Usage:\n");
-    	printf("./optimize <csv_filename> <N>\n");
+    	printf("./optimize <csv_filename> <N> <Limit>\n");
+    	printf("where:\n");
+    	printf("<csv_filename> is the csv file (including the input values) under $UPLOAD_HOME in wsi_config.xml;\n");
+    	printf("<N> is the total number of cores;\n");
+    	printf("<Limit> is the maximum number of considered candidates (if equal to 0, all the candidates are considered).\n");
+    	printf("Example:\n");
+    	printf("./OPT_JR Test1.csv 150 1\n");
     	exit(-1);
     }
 
@@ -177,6 +183,13 @@ char * getfield(char* line, int num)
     		if (!--num) return tok;
 
     return NULL;
+}
+
+
+double elapsedTime(struct timeval  tv1, struct timeval tv2)
+{
+	return (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 +
+	                     (double) (tv2.tv_sec - tv1.tv_sec);
 }
 
 
@@ -336,22 +349,23 @@ char * MPI_PrepareCmd(char * path, char * subfolder, char *appId, char * lua, in
 char * MPI_prepareOutput(int index)
 {
 	char cmd[1024];
-	char *output1, output2[64];
+	char *output1;
+	//output2[64];
 
 	output1 = (char *)malloc(64);
 
 	sprintf(cmd, "cat /tmp/output%d|head -n1|awk '{print $3;}'", index);
 
-
+/*
 	strcpy(output1, _run(cmd));
 	sprintf(cmd, "cat /tmp/output%d|head -n3|awk '{print $3;}'", index);
 	strcpy(output2, _run(cmd));
 	sprintf(output1, "%d", atoi(output2) - atoi(output1));
 
-	/*
+	*/
 	sprintf(cmd, "cat /tmp/output%d|head -n1|awk '{print $3;}'", index);
 	strcpy(output1, _run(cmd));
-*/
+
 	return output1;
 }
 

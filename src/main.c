@@ -12,10 +12,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <sys/time.h>
 #include "db.h"
 
 #include "list.h"
 #include "main.h"
+
+
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -110,19 +113,27 @@ int main(int argc, char **argv)
     char line[1024];
 
     int rows = 1;
+
+    struct timeval  tv_initial_main,
+    				tv_initial_nu,
+    				tv_final_nu,
+    				tv_initial_fix,
+    				tv_final_fix,
+    				tv_initial_locals,
+    				tv_final_locals,
+    				tv_final_main;
     /*
      * Check Usage
      */
+
     if (argc < 4) Usage();
 
 
     // Calculate the time taken
-    clock_t t;
-    t = clock();
+    gettimeofday(&tv_initial_main, NULL);
 
 
-
-
+    gettimeofday(&tv_initial_nu, NULL);
     /*
      * Find where the file has been uploaded and determine absolute file path
      */
@@ -207,18 +218,24 @@ int main(int argc, char **argv)
 
 
     /*
-     * For each eapplication:
+     * For each application:
      * -	Calculate nu_i (for other application different than the first),
      * -	Store each value in a db table
      * -	Find the bounds
      */
     calculate_Nu(conn, argv[1], first, N);
 
-    sListPointers *firstPointer = fixInitialSolution(first, N);
+    gettimeofday(&tv_final_nu, NULL);
 
+    gettimeofday(&tv_initial_fix, NULL);
+
+    sListPointers *firstPointer = fixInitialSolution(first, N);
+    gettimeofday(&tv_final_fix, NULL);
 
     /* Invoke localSearch */
-    localSearch(first, N, MAX_PROMISING_CONFIGURATIONS);
+    gettimeofday(&tv_initial_locals, NULL);
+    localSearch(conn, first, N, MAX_PROMISING_CONFIGURATIONS);
+    gettimeofday(&tv_final_locals, NULL);
 
     printf("Final solution\n");
     readList(first);
@@ -231,10 +248,14 @@ int main(int argc, char **argv)
     free(app_id);
     DBclose(conn);
 
-    t = clock() - t;
-    double time_taken = ((double)t)/CLOCKS_PER_SEC; // Convert everything in seconds
+    gettimeofday(&tv_final_main, NULL);
 
-   printf("Elapsed time %f seconds %f ticks\n", time_taken, (double)t);
+    printf("FixInitial step elapsed time: %lf\n", elapsedTime(tv_initial_fix, tv_final_fix));
+    printf("Nu computation elapsed time: %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
+    printf("LocalSearch step elapsed time: %lf\n", elapsedTime(tv_initial_locals, tv_final_locals));
+    printf("Overall elapsed time: %lf\n", elapsedTime(tv_initial_main, tv_final_main));
+
+
 
     // This return code is tested by the caller
     // Any value different than 0 will fire an exception
