@@ -298,13 +298,14 @@ int checkTotalCores(sList * pointer, double N)
 {
 	double tot = 0;
 
+
 	while (pointer!= NULL)
 	{
 		printf("app %s currentCores %d", pointer->app_id, (int)pointer->currentCores_d);
 		tot = tot + pointer->currentCores_d;
 		pointer = pointer->next;
 	}
-	printf("\nTOTALE CORES :%d\n", (int)tot);
+	printf("\nTOTALE CORES :%d out of %lf\n", (int)tot, N);
 	return doubleCompare(tot, N) == 0;
 }
 

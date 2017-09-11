@@ -19,7 +19,7 @@ void DBerror(MYSQL *conn, char * msg)
 }
 
 
-int executeSQL(MYSQL *conn, char *statement)
+double executeSQL(MYSQL *conn, char *statement)
 {
 	MYSQL_RES *result;
 	MYSQL_ROW rowdata;
@@ -42,7 +42,7 @@ int executeSQL(MYSQL *conn, char *statement)
 		sprintf(errorMsg, "SQL failure mysql_fetch_row. Statement was: %s", statement);
 		if (!rowdata) DBerror(conn, errorMsg);
 		else
-		return atoi(rowdata[0]);
+		return atof(rowdata[0]);
 	}
 
 return(-1);

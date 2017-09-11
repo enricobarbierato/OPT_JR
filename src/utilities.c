@@ -16,6 +16,7 @@
 #include <math.h>
 #include <limits.h>
 
+#include <mysql.h>
 #include "utilities.h"
 
 
@@ -57,6 +58,24 @@ char * readFolder(char *  path)
 	    closedir(dr);
 	    return NULL;
 }
+
+double retrieveTimeFromCash(MYSQL *conn, char *appId, double datasize )
+{
+
+	char output1[1024];
+	/* Update the cash table */
+	char statement[1024];
+	sprintf(statement, "select value from %s.PREDICTOR_CASH_TABLE where application_id=\'%s\' and "
+								"dataset_size=%d and phi_mem=\'8G\';", parseConfigurationFile("OptDB_dbName", XML), appId, datasize);
+
+	double out = executeSQL(conn, statement);
+						printf("%lf\n", out);exit(12);
+						sprintf(statement,"insert %s.PREDICTOR_CASH_TABLE values('%s', %d, '%s', %lf);",
+								parseConfigurationFile("OptDB_dbName", XML), appId, datasize, "8G", atof(output1));
+
+					    executeSQL(conn, statement);
+}
+
 
 /*
  * 		Name:					LundstromPredictor

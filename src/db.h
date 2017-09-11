@@ -14,7 +14,7 @@ void DBerror(MYSQL *, char * );
 MYSQL * DBopen(char * , char * , char *, char * );
 void DBclose(MYSQL *conn);
 void DBinsertrow(MYSQL * , char *, char *, float );
-int executeSQL(MYSQL *, char *);
+double executeSQL(MYSQL *, char *);
 
 
 #endif /* SRC_DB_H_ */

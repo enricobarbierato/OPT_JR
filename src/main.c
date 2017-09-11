@@ -65,18 +65,34 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 
 
 	residualCores = N - allocatedCores;
+	int addedCores;
+
 
 	while (!loopExit)
 	{
+
 		if (auxPointer == NULL) loopExit = 1;
 		else
 		{
 			// cores assignment
 
-			int addedCores = MIN(((int)(residualCores / auxPointer->app->V) )* auxPointer->app->V, auxPointer->app->bound_d);
-			if ((auxPointer->app->currentCores_d + addedCores) > 0)
+			int potentialDeltaCores=((int)(residualCores / auxPointer->app->V) )* auxPointer->app->V;
+
+			//addedCores = MIN(, auxPointer->app->bound_d);
+
+			if ((auxPointer->app->currentCores_d + potentialDeltaCores) > auxPointer->app->bound_d){
+				addedCores=auxPointer->app->bound_d-auxPointer->app->currentCores_d ;
+				auxPointer->app->currentCores_d =auxPointer->app->bound_d;
+
+			}
+			else{
+				auxPointer->app->currentCores_d =auxPointer->app->currentCores_d + potentialDeltaCores;
+				addedCores=potentialDeltaCores;
+			}
+
+			if (addedCores > 0)
 			{
-				auxPointer->app->currentCores_d+= addedCores;
+				//auxPointer->app->currentCores_d+= addedCores;
 
 				printf("adding cores to App %s, %d \n", auxPointer->app->app_id, addedCores);
 
@@ -227,6 +243,8 @@ int main(int argc, char **argv)
 
     gettimeofday(&tv_final_nu, NULL);
 
+    checkTotalCores(first, N);
+
     gettimeofday(&tv_initial_fix, NULL);
 
     sListPointers *firstPointer = fixInitialSolution(first, N);
@@ -251,7 +269,7 @@ int main(int argc, char **argv)
     gettimeofday(&tv_final_main, NULL);
 
     printf("FixInitial step elapsed time: %lf\n", elapsedTime(tv_initial_fix, tv_final_fix));
-    printf("Nu computation elapsed time: %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
+    printf("FIndbounds (including Nu computation) elapsed time: %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
     printf("LocalSearch step elapsed time: %lf\n", elapsedTime(tv_initial_locals, tv_final_locals));
     printf("Overall elapsed time: %lf\n", elapsedTime(tv_initial_main, tv_final_main));
 

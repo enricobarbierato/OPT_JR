@@ -284,6 +284,9 @@ char* invokePredictor(MYSQL *conn, int nNodes, int currentCores, char * memory, 
 			 */
 
 
+
+
+
 			sprintf(cmd, "line=$(cat %s|grep \"Nodes = \");sed -i \"s/$line/Nodes = %d;/g\" %s", lua, (nNodes*currentCores), lua);
 			_run(cmd);
 
@@ -298,12 +301,7 @@ char* invokePredictor(MYSQL *conn, int nNodes, int currentCores, char * memory, 
 			sprintf(cmd, "cd %s;./dagsim.sh %s|head -n1|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
 			strcpy(output1, _run(cmd));
 
-			/* Update the cash table */
-			char statement[1024];
-			sprintf(statement,"insert %s.PREDICTOR_CASH_TABLE values('%s', %d, '%s', %lf);",
-					parseConfigurationFile("OptDB_dbName", XML), appId, datasize, "8G", atof(output1));
-			//printf("%s\n", statement);
-		     //executeSQL(conn, statement);
+
 
 
 			break;
@@ -359,9 +357,8 @@ void  Bound(MYSQL *conn, sList * pointer)
 		nCores = pointer->currentCores_d;
 
 
-
-		printf("Bound evaluation for %s  cores %d\n", pointer->app_id, nCores);
 		predictorOutput = atoi(invokePredictor( conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->app_id));
+		printf("Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->app_id, predictorOutput, pointer->Deadline_d, nCores);
 		// Danilo 27/7/2017
 		pointer->sAB.index = 0;
 		pointer->sAB.vec[pointer->sAB.index].nCores = nCores;
@@ -381,9 +378,9 @@ void  Bound(MYSQL *conn, sList * pointer)
 				//printf("(up) time = %d Rnew =%d\n", time, BTime);
 
 				nCores = nCores + STEP;
-
-				printf("Bound evaluation, appid %s, Step %d, evaluating %d\n", pointer->app_id, STEP, nCores);
 				predictorOutput = atoi(invokePredictor( conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->app_id));
+				printf("Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->app_id, predictorOutput,pointer->Deadline_d, nCores);
+
 				BCores = nCores;
 				BTime = predictorOutput;
 
@@ -406,7 +403,7 @@ void  Bound(MYSQL *conn, sList * pointer)
 				BTime = predictorOutput;
 				nCores = nCores - STEP;
 
-			    printf("Bound evaluation, appid %s, evaluating %d\n", pointer->app_id, nCores);
+
 
 				if (nCores <0)
 				{
@@ -422,6 +419,7 @@ void  Bound(MYSQL *conn, sList * pointer)
 					break;
 				}
 				predictorOutput = atoi(invokePredictor( conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->app_id));
+				printf("Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->app_id, predictorOutput, pointer->Deadline_d, nCores);
 
 				pointer->sAB.vec[pointer->sAB.index].nCores = nCores;
 				pointer->sAB.vec[pointer->sAB.index].R = predictorOutput;
@@ -958,6 +956,8 @@ void calculate_Nu(MYSQL *conn, char * uniqueFilename, sList *first, int N)
 
 	while (first != NULL)
 	{
+		 findBound(conn, parseConfigurationFile("OptDB_dbName", XML), first);
+
 	    csi = getCsi(first->M/first->m, first->V/first->v);
 
 	    if (rows == 0) index_d = nu_1; else
@@ -977,7 +977,7 @@ void calculate_Nu(MYSQL *conn, char * uniqueFilename, sList *first, int N)
 	           2) the bound (time)
 	        */
 
-	     findBound(conn, parseConfigurationFile("OptDB_dbName", XML), first);
+
 
 	        /* Compute alpha and beta for H Interpolation
 	         *
