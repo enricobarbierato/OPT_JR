@@ -3,7 +3,7 @@
 #include <string.h>
 #include <limits.h>
 #include <float.h>
-
+#include <sys/time.h>
 
 #include "list.h"
 #include "common.h"
@@ -17,7 +17,7 @@
  * 		Description:			This function adds all the information regarding an application into a list
  *
  */
-void addParameters(sList ** first,   sList ** current, char * app_id, double w, double chi_0, double chi_C, double m, double M, double V, double v, double Deadline_d, double csi,
+void addParameters(sList ** first,   sList ** current, char *session_app_id, char * app_id, double w, double chi_0, double chi_C, double m, double M, double V, double v, double Deadline_d, double csi,
 		char * StageId, int datasetSize)
 {
 
@@ -37,6 +37,15 @@ void addParameters(sList ** first,   sList ** current, char * app_id, double w, 
 	  	  	    exit(-1);
 	  }
 	  strcpy(new->app_id, app_id);
+
+	  new->session_app_id = (char *)malloc(1024);
+	  if (new->session_app_id == NULL)
+	  {
+	  	  	printf("addParameters: malloc failure\n");
+	  	  	exit(-1);
+	  }
+	  strcpy(new->session_app_id, session_app_id);
+
 	  new->chi_0 = chi_0;
 	  new->chi_C = chi_C;
 	  new->m = m;
@@ -58,8 +67,8 @@ void addParameters(sList ** first,   sList ** current, char * app_id, double w, 
 
 	  /* Initialize the parameter that will be calculated later */
 	  new->R_d = 0;
-
-	  new->bound_d = 0;
+	  new->baseFO = -1;
+	  new->bound = 0;
 
 	  new->next = NULL;
 
@@ -81,7 +90,7 @@ void addParameters(sList ** first,   sList ** current, char * app_id, double w, 
 	 	 	 		  		sList * previous = *first;
 	 	 	 		  	sList * current = (*first)->next;
 
-	 	 	 				 while (current != NULL && doubleCompare(current->w, w) == -1)
+	 	 	 				 while (current != NULL && current->w < w)
 	 	 	 				 {
 	 	 	 					 previous = current;
 	 	 	 					 current = current->next;
@@ -132,13 +141,14 @@ void readList(sList *pointer)
 
 void printRow(sList *pointer)
 {
-/*
-    printf("app_id = %s  w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf \n V = %lf v = %lf D = %d R = %lf "
+
+    /*printf("session_pp_id =%s app_id = %s  w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf \n V = %lf v = %lf D = %d R = %lf "
     		" bound = %lf nu = %lf currentcores = %lf nCores = %lf \n\n ",
-    		pointer->app_id,
+			pointer->session_app_id,
+			pointer->app_id,
 			pointer->w,
 			pointer->chi_0,
-			pointer->chi_c_1,
+			pointer->chi_C,
 			pointer->m,
 			pointer->M,
 			pointer->V,
@@ -148,9 +158,10 @@ void printRow(sList *pointer)
 			pointer->bound_d,
 			pointer->nu_d,
 			pointer->currentCores_d,
-			pointer->nCores_d);
+			pointer->nCores_DB_d);
 			*/
-	printf("app_id %s  weight %lf nu %d iterations to find the bound %d currentcores = %d nCores from DB = %d \n\n", pointer->app_id, pointer->w, pointer->nu_d, pointer->boundIterations, pointer->currentCores_d, (int)pointer->nCores_DB_d);
+	printf("session_app_id %s app_id %s  weight %d nu %lf iterations to find the bound %d currentcores = %d nCores from DB = %d \n\n",
+			pointer->session_app_id, pointer->app_id, pointer->w, pointer->nu_d, pointer->boundIterations, pointer->currentCores_d, (int)pointer->nCores_DB_d);
 }
 
 void commitAssignment(sList *pointer, char *appId,  double DELTA)
@@ -296,7 +307,7 @@ sAux * findMinDelta(sAux * pointer)
  */
 int checkTotalCores(sList * pointer, double N)
 {
-	double tot = 0;
+	int tot = 0;
 
 
 	while (pointer!= NULL)
@@ -305,7 +316,7 @@ int checkTotalCores(sList * pointer, double N)
 		tot = tot + pointer->currentCores_d;
 		pointer = pointer->next;
 	}
-	printf("\nTOTALE CORES :%d out of %lf\n", (int)tot, N);
+	printf("\nTOTALE CORES :%d out of %lf\n", tot, N);
 	return doubleCompare(tot, N) == 0;
 }
 
@@ -477,9 +488,39 @@ void addStatistics(sStatistics ** first, sStatistics ** current, int iteration, 
 
 }
 
+void printOutput(sList * pointer)
+{
+	FILE *fp;
+	char filename[1024];
+
+
+
+	struct timeval tv;
+	gettimeofday(&tv,NULL);
+
+
+	strcpy(filename, parseConfigurationFile("OUTPUT_FILE", 1));
+	sprintf(filename, "%s/opt_jr_output.%lf.csv", parseConfigurationFile("OUTPUT_FILE", 1), (double)tv.tv_sec);
+
+	fp=fopen(filename,"w+");
+
+	fprintf(fp, "#AppId, currentCores\n");
+	while (pointer!= NULL)
+	{
+		fprintf(fp,"\n%s,%d",pointer->app_id, pointer->currentCores_d);
+		pointer = pointer->next;
+	}
+
+
+
+	fclose(fp);
+}
+
 void readStatistics(sStatistics *pointer)
 {
+	printf("******************************\n");
 	printf("\n\nStatistics list content:\n");
+	printf("******************************\n");
 
 	printf("Iteration   List Size  Total FO\n");
 	while (pointer!=NULL)

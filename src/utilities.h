@@ -14,8 +14,8 @@
 
 #include "common.h"
 
-
-const int PARAMETERS = 11;
+/* Number of values in the csv file */
+const int PARAMETERS = 12;
 
 const double epsilon = 0.001;
 

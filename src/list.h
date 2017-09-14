@@ -33,8 +33,10 @@ struct List
 	int mode; /* How the objective function is calculated */
 
 	/* CSV file parameters related to the single application */
+	char * session_app_id;
 	char * app_id;
-    double w;					/* Weight application  */
+    int w;					/* Weight application  */
+    double term_i;
     double chi_0;
     double chi_C;
     double m;
@@ -48,10 +50,10 @@ struct List
 
     /* Calculated values */
 
-    int nu_d;					/* nu value */
+    double nu_d;					/* nu value */
     int  currentCores_d;		/* Initialized to nu_i */
     int  nCores_DB_d;			/* Initialized to the value from look-up table */
-    double bound_d;				/* Bound (number of cores) */
+    int bound;				/* Bound (number of cores) */
     double R_d;					/* Value of R as per the predictor */
     double R_bound_d;			/* Bound (R) */
     double baseFO;				/* base FO value (used to calculate the delta) */
@@ -131,7 +133,7 @@ void freeParametersList(sList * pointer);
 void freeApplicationList(sListPointers * pointer);
 void readList(sList *);
 void printRow(sList *);
-void addParameters(sList ** ,  sList **, char *, double , double  , double , double , double , double , double , double , double, char *, int  );
+void addParameters(sList ** ,  sList **, char *, char *, double , double  , double , double , double , double , double , double , double, char *, int  );
 void freeAuxList(sAux * pointer);
 void readAuxList(sAux *);
 void printAuxRow(sAux *);

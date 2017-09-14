@@ -31,7 +31,7 @@ double executeSQL(MYSQL *conn, char *statement)
 	      exit(1);
 	  }
 
-
+	/* Check if the query has returned at least a row */
 	if (mysql_query(conn, statement))
 			DBerror(conn, "SQL failure executeSQL)\n");
 
@@ -39,10 +39,7 @@ double executeSQL(MYSQL *conn, char *statement)
 	if (result)
 	{
 		rowdata = mysql_fetch_row(result);
-		sprintf(errorMsg, "SQL failure mysql_fetch_row. Statement was: %s", statement);
-		if (!rowdata) DBerror(conn, errorMsg);
-		else
-		return atof(rowdata[0]);
+		if (rowdata)  return atof(rowdata[0]);
 	}
 
 return(-1);

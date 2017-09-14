@@ -16,7 +16,7 @@
 #include <math.h>
 #include <limits.h>
 
-#include <mysql.h>
+#include "db.h"
 #include "utilities.h"
 
 
@@ -59,22 +59,27 @@ char * readFolder(char *  path)
 	    return NULL;
 }
 
-double retrieveTimeFromCash(MYSQL *conn, char *appId, double datasize )
+double retrieveTimeFromDBCash(MYSQL *conn, char *appId, int datasize, int ncores )
 {
 
 	char output1[1024];
 	/* Update the cash table */
 	char statement[1024];
 	sprintf(statement, "select value from %s.PREDICTOR_CASH_TABLE where application_id=\'%s\' and "
-								"dataset_size=%d and phi_mem=\'8G\';", parseConfigurationFile("OptDB_dbName", XML), appId, datasize);
+								"dataset_size=%d and phi_mem=\'8G\' and num_cores_opt = %d;",
+								parseConfigurationFile("OptDB_dbName", XML),
+								appId,
+								datasize,
+								ncores);
+	printf("SQL statement: %s\n", statement);
+	// TO DO the value stored must be the residual, not the entire system time returned by dagSim
+	return executeSQL(conn, statement);
 
-	double out = executeSQL(conn, statement);
-						printf("%lf\n", out);exit(12);
-						sprintf(statement,"insert %s.PREDICTOR_CASH_TABLE values('%s', %d, '%s', %lf);",
-								parseConfigurationFile("OptDB_dbName", XML), appId, datasize, "8G", atof(output1));
 
-					    executeSQL(conn, statement);
+
 }
+
+
 
 
 /*
@@ -373,11 +378,16 @@ char * MPI_prepareOutput(int index)
 
 	output1 = (char *)malloc(64);
 
-	sprintf(cmd, "cat /tmp/output%d|head -n1|awk '{print $3;}'", index);
+
 
 /*
+	// Extract third row waiting time only of system metrics output
+	sprintf(cmd, "cat /tmp/output%d|sed '3q;d'|awk '{print $3}'", index);
 	strcpy(output1, _run(cmd));
-	sprintf(cmd, "cat /tmp/output%d|head -n3|awk '{print $3;}'", index);
+	// Extract from task second row first time value
+	sprintf(cmd, "grep %s /tmp/output%dsed '2q;d'|awk '{print $4}');
+	strcpy(output2, _run(cmd));
+	//grep M1 /tmp/output0|sed '2q;d'|awk '{print $4}'
 	strcpy(output2, _run(cmd));
 	sprintf(output1, "%d", atoi(output2) - atoi(output1));
 

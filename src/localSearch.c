@@ -11,7 +11,7 @@
 #include "localSearch.h"
 
 
-#define MAX_ITERATIONS 10
+#define MAX_ITERATIONS 15
 #define PREDICTOR DAGSIM
 
 #define GLOBAL_PRINT YES
@@ -22,7 +22,7 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 {
 	if (first_i == NULL)
 	{
-		printf("Error: approximatedLoop: null pointer<n");
+		printf("Error: approximatedLoop: null pointer\n");
 		exit(-1);
 	}
 
@@ -46,7 +46,7 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 			application_j = first_i;
 			while (application_j != NULL)
 			{
-				if (strcmp(application_i->app_id, application_j->app_id)!= 0)
+				if (strcmp(application_i->session_app_id, application_j->session_app_id)!= 0)
 				{
 					printf("\n\nComparing %s with %s\n", application_i->app_id, application_j->app_id);
 					printf("-----------------------------------------------\n");
@@ -58,7 +58,7 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 					DELTAVM_j = nCoreMov/application_j->V;printf("app %s DELTAVM_j %lf\n", application_j->app_id, DELTAVM_j);
 
 					/* Change the currentCores, but rollback later */
-					printf("app %s currentCores %d\n", application_i->app_id, (int)application_i->currentCores_d);
+					printf("\n app %s currentCores %d\n", application_i->app_id, (int)application_i->currentCores_d);
 					printf("app %s currentCores %d\n", application_j->app_id, (int)application_j->currentCores_d);
 
 					int deltaNCores_i=DELTAVM_i*application_i->V;
@@ -66,8 +66,8 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 					application_i->currentCores_d = application_i->currentCores_d + deltaNCores_i;
 					application_j->currentCores_d = application_j->currentCores_d - deltaNCores_j;
 
-					printf("Dopo mossa: app %s currentCores %d\n", application_i->app_id, (int)application_i->currentCores_d);
-					printf("Dopo mossa: app %s currentCores %d\n", application_j->app_id, (int)application_j->currentCores_d);
+					printf("\n   Dopo mossa: app %s currentCores %d\n", application_i->app_id, (int)application_i->currentCores_d);
+					printf("   Dopo mossa: app %s currentCores %d\n", application_j->app_id, (int)application_j->currentCores_d);
 
 
 					if (application_i->currentCores_d > 0 && application_j->currentCores_d > 0)
@@ -84,20 +84,22 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 
 								ObjFunctionComponentApprox(application_i) - application_i->baseFO;
 
-						printf("app %s DELTA_fo_App_i %lf\n", application_i->app_id, DELTA_fo_App_i);
+						printf("\napp %s DELTA_fo_App_i %lf\n", application_i->app_id, DELTA_fo_App_i);
 
 
 						DELTA_fo_App_j = //application_j->alpha/(application_j->currentCores_d)-application_j->alpha/(application_j->currentCores_d + deltaNCores_j);
 								ObjFunctionComponentApprox(application_j) - application_j->baseFO;
-						printf("app %s DELTA_fo_App_j %lf\n", application_j->app_id, DELTA_fo_App_j);
+						printf("\n app %s DELTA_fo_App_j %lf\n", application_j->app_id, DELTA_fo_App_j);
 
 						//printf("App %s Delta FO Approx  %lf\n", application_i->app_id, DELTA_fo_App_i);
 						//printf("App %s Delta FO Approx  %lf\n", application_j->app_id, DELTA_fo_App_j);
 						// TODO DANILO Store global delta complessivo and number of cores into auxiloiary list -> ENRICO DONE
 
 
-						if ((int)(DELTA_fo_App_i + DELTA_fo_App_j) < 0 )
+						//if ((DELTA_fo_App_i + DELTA_fo_App_j < 0) ||(DELTA_fo_App_i + DELTA_fo_App_j >= 0))
+						if ((DELTA_fo_App_i + DELTA_fo_App_j < 0))
 						{
+							//printf("LOCALSEARCH adding negative DELTA (%lf)\n", DELTA_fo_App_i + DELTA_fo_App_j);
 							addAuxParameters(&sfirstAuxApproximated,
 									&scurrentAuxApproximated,
 									application_i,
@@ -245,11 +247,7 @@ char* invokePredictor(MYSQL *conn, int nNodes, int currentCores, char * memory, 
 
 	char dir[1024];
 
-	if (currentCores <= 0)
-	{
-		printf("Fatal Error: invokePredictor app %s Cannot invoke predictor on negative  or zero number of cores: currentCores = %d\n", appId, currentCores);
-		exit(-1);
-	}
+printf("invokePredictor\n");
 	/* Consider always the same
 	 This is possible because the variance between the log folders is small*/
 	strcpy(path, parseConfigurationFile("FAKE", 1));
@@ -284,26 +282,36 @@ char* invokePredictor(MYSQL *conn, int nNodes, int currentCores, char * memory, 
 			 */
 
 
+			/* Check if there is an output from dagSim already cached in the DB */
+			double out = retrieveTimeFromDBCash(conn, appId,  datasize, currentCores );
+			if (out == -1)
+			{
+				sprintf(cmd, "line=$(cat %s|grep \"Nodes = \");sed -i \"s/$line/Nodes = %d;/g\" %s", lua, (nNodes*currentCores), lua);
+				_run(cmd);
 
+			 	 /*
+				sprintf(cmd, "cd %s;./dagsim.sh %s|head -n2|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
+				strcpy(output1, _run(cmd));
+				sprintf(cmd, "cd %s;./dagsim.sh %s|head -n3|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
+				strcpy(output2, _run(cmd));
+				sprintf(output1, "%d", atoi(output2) - atoi(output1));
+			 	  */
 
+				sprintf(cmd, "cd %s;./dagsim.sh %s|head -n1|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
+				strcpy(output1, _run(cmd));
 
-			sprintf(cmd, "line=$(cat %s|grep \"Nodes = \");sed -i \"s/$line/Nodes = %d;/g\" %s", lua, (nNodes*currentCores), lua);
-			_run(cmd);
+				/* Update the db cash table with a new value */
+				char statement[1024];
+				sprintf(statement,"insert %s.PREDICTOR_CASH_TABLE values('%s', %d, '%s', %lf, %d);",
+												parseConfigurationFile("OptDB_dbName", XML), appId, datasize, "8G", atof(output1), nNodes*currentCores);
 
-			 /*
-			sprintf(cmd, "cd %s;./dagsim.sh %s|head -n2|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
-			strcpy(output1, _run(cmd));
-			sprintf(cmd, "cd %s;./dagsim.sh %s|head -n3|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
-			strcpy(output2, _run(cmd));
-			sprintf(output1, "%d", atoi(output2) - atoi(output1));
-			*/
-
-			sprintf(cmd, "cd %s;./dagsim.sh %s|head -n1|awk '{print $3;}'", parseConfigurationFile("DAGSIM_HOME", 1), lua);
-			strcpy(output1, _run(cmd));
-
-
-
-
+				executeSQL(conn, statement);
+			}
+			else
+				{
+					printf("Dagsim output retrieved from DB cash: %s %lf\n", appId, out);
+					sprintf(output1, "%lf", out);
+				}
 			break;
 	}
 
@@ -374,7 +382,13 @@ void  Bound(MYSQL *conn, sList * pointer)
 		if (doubleCompare(predictorOutput, pointer->Deadline_d) == 1)
 			while (predictorOutput > pointer->Deadline_d)
 			{
-
+				if (nCores ==0)
+				{
+					printf("Warning Bound (| if case): nCores is currently 0 for app. Cannot invoke Predictor\n");
+					nCores= pointer->V;
+					//leave the while loop
+					break;
+				}
 				//printf("(up) time = %d Rnew =%d\n", time, BTime);
 
 				nCores = nCores + STEP;
@@ -413,7 +427,7 @@ void  Bound(MYSQL *conn, sList * pointer)
 
 				if (nCores ==0)
 				{
-					//printf("Warning: nCores is currently 0 for app. Cannot invoke Predictor\n");
+					//printf("Warning Bound (< if case): nCores is currently 0 for app. Cannot invoke Predictor\n");
 					nCores= pointer->V;
 					//leave the while loop
 					break;
@@ -433,8 +447,8 @@ void  Bound(MYSQL *conn, sList * pointer)
 
 	pointer->currentCores_d = BCores;
 	pointer->R_d = BTime;
-	pointer->bound_d = BCores;
-	printf("D = %lf R = %lf  bound = %lf\n", pointer->Deadline_d, pointer->R_d, pointer->bound_d);
+	pointer->bound = BCores;
+	printf("\n\n *** APP_ID %s D = %lf R = %lf  bound = %d\n\n", pointer->app_id, pointer->Deadline_d, pointer->R_d, pointer->bound);
 
 
 }
@@ -511,7 +525,7 @@ void MPI_ObjFunctionComponent(MYSQL *conn, sList * pointer_i, sList * pointer_j,
 
 	//printf("ObjFunctionComponent: App_id %s w %f R %d D %d nCores %d newCores %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D, pointer->cores, pointer->newCores);
 
-	printf("W %lf R_d %lf D %lf\n", pointer_i->w, pointer_i->R_d, pointer_i->Deadline_d);
+	printf("W %d R_d %lf D %lf\n", pointer_i->w, pointer_i->R_d, pointer_i->Deadline_d);
 
 	if (pointer_i->R_d > pointer_i->Deadline_d) *output1 = pointer_i->w * (pointer_i->R_d - pointer_i->Deadline_d);
 				else *output1 = 0;
@@ -558,7 +572,7 @@ int ObjFunctionComponent(MYSQL *conn, sList * pointer)
 	switch(pointer->mode)
 	{
 		case R_ALGORITHM:
-				printf("W %lf R_d %lf D %lf\n", pointer->w, pointer->R_d, pointer->Deadline_d);
+				printf("ObjFunctionComponent W %d R_d %lf D %lf\n", pointer->w, pointer->R_d, pointer->Deadline_d);
 				if (pointer->R_d > pointer->Deadline_d)
 					output = pointer->w * (pointer->R_d - pointer->Deadline_d);
 				else output = 0;
@@ -608,7 +622,7 @@ int ObjFunctionComponentApprox(sList * pointer)
 
 	/* Determine how the obj function needs to be calculated */
 
-	printf("W %lf R_d %lf D %lf\n", pointer->w, pointer->R_d, pointer->Deadline_d);
+	printf("W %d R_d %lf D %lf\n", pointer->w, pointer->R_d, pointer->Deadline_d);
 	if (pointer->R_d > pointer->Deadline_d)
 		output = pointer->w * (pointer->R_d - pointer->Deadline_d);
 	else output = 0;
@@ -632,15 +646,15 @@ void findBound(MYSQL *conn, char *db,  sList *pointer)
 
 	char statement[256];
 
-
+    printf("\n findBound %s %s\n", pointer->session_app_id, pointer->app_id);
 
 	/* Retrieve nCores from the DB
 	 *
 	 **/
-        sprintf(statement,
+    sprintf(statement,
                         "select num_cores_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%lf;"
                         , db, pointer->app_id, pointer->datasetSize, pointer->Deadline_d);
-
+    //printf("statement %s\n", statement);
     pointer->nCores_DB_d = executeSQL(conn, statement);
     if (pointer->nCores_DB_d <= 0)
     {
@@ -649,19 +663,8 @@ void findBound(MYSQL *conn, char *db,  sList *pointer)
     }
 
     Bound(conn, pointer);
-    /*
-	Bound(deadline, nNodes_d, pointer->nCores_d,
-			pointer->datasetSize,
-			pointer->app_id,
-			&(pointer->R_bound_d),
-			&(pointer->bound_d),
-			pointer->V);
-			*/
 
-    /* Compute baseFO */
-
-	pointer->mode = R_ALGORITHM;pointer->baseFO = ObjFunctionComponent(conn, pointer);
-
+    /* the call to Initialize baseFO has been moved from here to main.c */
 
 }
 
@@ -703,19 +706,19 @@ void localSearch(MYSQL *conn, sList * application_i, int n, int MAX_PROMISING_CO
 			exit(-1);
 		}
 
-	printf("\n\nLocalsearch\n");
-	if (GLOBAL_PRINT == YES) printf("Global obj function %lf\n", ObjFunctionGlobal(conn, first_i));
+
+
 
 
 
 int index = 0;
 double TotalFO;
-double output_i, output_j;
+
 int how_many;
 
 
 for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
-	printf("ITERATION %d\n", iteration);
+	printf("************************************** ITERATION **************************************%d\n", iteration);
 
 	//sfirstAuxApproximated = approximatedLoop(first_i,  sfirstAuxApproximated);
 	sfirstAuxApproximated = approximatedLoop(first_i, &how_many );
@@ -726,6 +729,7 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
 		// To Do: consider only the first MAX_PROMISING_CONFIGURATIONS of the list
 		while (sfirstAuxApproximated != NULL)
 		{
+			printf(" \n\n*** Browsing auxApproximated list ***\n");
 			/* Consider only the first MAX_PROMISING_CONFIGURATIONS list members */
 			if (index > 0 && index == MAX_PROMISING_CONFIGURATIONS)
 			{
@@ -768,16 +772,13 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
 				* Call object function evaluation
 				*/
 
-				/*
-				DELTA_fo_App_i = ObjFunctionComponent(application_i) - application_i->baseFO; printf("app %s DELTA_fo_App_i %lf\n",
-						application_i->app_id, DELTA_fo_App_i);
-				DELTA_fo_App_j = ObjFunctionComponent(application_j) - application_j->baseFO;printf("app %s DELTA_fo_App_j %lf\n",
-						application_j->app_id, DELTA_fo_App_j);
-				 */
-				MPI_ObjFunctionComponent(conn, application_i, application_j, &output_i, &output_j);
-				printf("Richiamato dagsim su %d e %d\n", application_i->currentCores_d, application_j->currentCores_d);
-				DELTA_fo_App_i = output_i - application_i->baseFO; printf("app %s DELTA_fo_App_i %lf\n",application_i->app_id, DELTA_fo_App_i);
-				DELTA_fo_App_j = output_j - application_j->baseFO; printf("app %s DELTA_fo_App_j %lf\n",application_j->app_id, DELTA_fo_App_j);
+				 DELTA_fo_App_i = ObjFunctionComponent(conn, application_i) - application_i->baseFO; printf("app %s DELTA_fo_App_i %lf\n",
+				                                                application_i->app_id, DELTA_fo_App_i);
+				 DELTA_fo_App_j = ObjFunctionComponent(conn, application_j) - application_j->baseFO;printf("app %s DELTA_fo_App_j %lf\n",
+				                                                application_j->app_id, DELTA_fo_App_j);
+
+
+
 
 
 				// DANILO Store total delta complessivo and number of cores into auxiliary list -> ENRICO DONE
@@ -824,13 +825,13 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
 	printf("****************************************************\n");
 	if (GLOBAL_PRINT == YES)
 	{
-		printf("Calculating Global FO:\n");
 		TotalFO = ObjFunctionGlobal(conn, first_i);
-		printf("Global obj function %lf\n", TotalFO);
+		printf("\n\nGlobal obj function %lf\n", TotalFO);
+		/* Update Statistics */
+		addStatistics(&firstS, &currentS, iteration, how_many, TotalFO);
 	}
 
-	/* Update Statistics */
-	addStatistics(&firstS, &currentS, iteration, how_many, TotalFO);
+
 
 	printf("Destroy Aux list\n");
 
@@ -884,11 +885,13 @@ freeStatisticsList(firstS);
 
 void initialize(MYSQL *conn, sList * application_i)
 {
+	printf("INITIALIZE baseFo for all the applications\n");
 	while (application_i != NULL)
 	{
 
 			application_i->mode = R_ALGORITHM;
 			application_i->baseFO = ObjFunctionComponent(conn, application_i);
+			printf("\n\n INITIALIZE BASE FO for APP %s baseFO =%lf\n\n", application_i->app_id, application_i->baseFO);
 			application_i = application_i->next;
 	}
 }
@@ -913,12 +916,32 @@ void calculate_Nu(MYSQL *conn, char * uniqueFilename, sList *first, int N)
 	sList * current = first;
 	int rows = 0;
 	char * app_id;
-	double w1;
+	int w1;
 	double chi_c_1;
 	double csi_1;
-	double index_d;
+
 	double csi;
 
+	int minCapacity= 0;
+
+
+	printf("\n------------------- CALCULATE_NU ------------------- \n");
+
+	//TO DO sum di V_i -> DONE
+	while (current != NULL)
+	{
+		minCapacity+= current->V;
+		current = current->next;
+	}
+	current = first;
+
+	N = N - minCapacity;
+
+	if (current == NULL)
+	{
+		printf("Fatal error: calculate_nu: current cannot be NULL\n");
+		exit(-1);
+	}
 
 	app_id = (char *)malloc(MAX_APP_LENGTH);
 	if (app_id == NULL)
@@ -937,13 +960,14 @@ void calculate_Nu(MYSQL *conn, char * uniqueFilename, sList *first, int N)
 			w1 = current->w;
 			chi_c_1 = current->chi_C;
 			csi_1 = getCsi(current->M/current->m, current->V/current->v);
-			//printf("first app: %s %lf %lf %lf\n", current->app_id, w1, chi_c_1, csi_1);
+			//printf("Calculate_nu first app: %s w1 %d chi_c %lf chi_c_1%lf\n", current->app_id, w1, chi_c_1, csi_1);
 		}
 		else /*Any other row */
 		{
 		       csi = getCsi(current->M/current->m, current->V/current->v);
-		       tot = tot + sqrt((current->w/w1)*(current->chi_C/chi_c_1)*(csi_1/csi));
-		       //printf("Other rows: %s %lf %lf %lf\n", current->app_id, current->w, csi, tot);
+		       current->term_i = sqrt((current->w/w1)*(current->chi_C/chi_c_1)*(csi_1/csi));
+		       tot = tot + current->term_i;
+		      // printf("Calculate_nu  Other rows: %s w %d csi %lf tot %lf\n", current->app_id, current->w, csi, tot);
 		}
 		rows++;
 		current = current->next;
@@ -953,48 +977,53 @@ void calculate_Nu(MYSQL *conn, char * uniqueFilename, sList *first, int N)
 	//printf("nu_1=%lf\n", nu_1);
 
 	rows = 0;
+	tot = 0;
+	current = first;
+	double term_j;
 
-	while (first != NULL)
+	while (current != NULL)
 	{
-		 findBound(conn, parseConfigurationFile("OptDB_dbName", XML), first);
+		findBound(conn, parseConfigurationFile("OptDB_dbName", XML), current);
+		if (rows > 0)
+		{
+			csi = getCsi(current->M/current->m, current->V/current->v);
+			term_j = sqrt((current->w/w1)*(current->chi_C/chi_c_1)*(csi_1/csi));
+			tot = tot+ term_j;
 
-	    csi = getCsi(first->M/first->m, first->V/first->v);
+		} else rows++;
+	    current = current->next;
+	}
 
-	    if (rows == 0) index_d = nu_1; else
-	    /* Any other application than the first */
-	        index_d = nu_1*sqrt((first->w/w1)*(first->chi_C/chi_c_1)*(csi_1/csi));
-	    first->nu_d = index_d;
-	    first->currentCores_d = index_d;
-	    //printf("%lf %lf %lf %lf\n",current->w, index_d, nu_1, sqrt((current->w/w1)*(current->chi_C/chi_c_1)*(csi_1/csi)));
-
-
-	        /* Update the db table */
-	        //DBinsertrow(conn, uniqueFilename, app_id, indexF);
-
-	        /*
-	           Calculate
-	           1) the bound (new number of cores)
-	           2) the bound (time)
-	        */
+	rows = 0;
+	    while (first != NULL)
+	    {
+	    	if (rows == 0) first->nu_d = nu_1;
+	    	else
+	    	{
+	    		first->nu_d = (first->term_i/(1 + tot))*N;
+	    		//printf("\nTERM app %s %lf tot %lf\n", first->app_id, first->term_i, (1 + tot) );
+	    	}
+	    	//printf("NU_i%lf nu1 %lf\n", first->nu_d, nu_1);
+	    	first->currentCores_d = first->nu_d;
 
 
 
-	        /* Compute alpha and beta for H Interpolation
-	         *
-	         */
-	     first->beta = computeBeta(first->sAB);
-	     first->alpha = computeAlpha(first->sAB, first->beta);
+	    	first->beta = computeBeta(first->sAB);
+	    	first->alpha = computeAlpha(first->sAB, first->beta);
 
-	        printf("App %s alpha = %lf beta = %lf\n", first->app_id, first->alpha, first->beta);
-	        printf(" R %lf nCores %d\n", first->sAB.vec[0].R, first->sAB.vec[0].nCores);
-	        printf(" R %lf nCores %d\n", first->sAB.vec[1].R, first->sAB.vec[1].nCores);
+	        //printf("App %s alpha = %lf beta = %lf\n", first->app_id, first->alpha, first->beta);
+	        //printf(" R %lf nCores %d\n", first->sAB.vec[0].R, first->sAB.vec[0].nCores);
+	        //printf(" R %lf nCores %d\n", first->sAB.vec[1].R, first->sAB.vec[1].nCores);
 
 	        //current->currentCores_d = current->bound_d;
 
 	        printRow(first);
-	      first = first->next;
-	      rows++;
-	   }
 
+	        first = first->next;
+	        rows++;
+	   }
+	    printf("------------------- END ------------------- \n");
 }
+
+
 

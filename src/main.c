@@ -40,9 +40,13 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 
 	while (first != NULL)
 	{
-		first->currentCores_d = ((int)(first->currentCores_d / first->V)) * first->V;
-		if (first->currentCores_d > first->bound_d)
-			first->currentCores_d = first->bound_d;
+		int currentcores1 =first->currentCores_d;
+		double currentcores2=max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
+
+
+		first->currentCores_d = max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
+		if (first->currentCores_d > first->bound)
+			first->currentCores_d = first->bound;
 		else
 			{
 				printf("adding %s to ListPointers\n", first->app_id);
@@ -53,7 +57,7 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 		// TODO Handle insert in such a way the list is sorted by weight -> DONE
 
 		allocatedCores+= first->currentCores_d;
-
+		printf("***fixInitialSolution FIXING CORES*** %s %d\n", first->app_id, first->currentCores_d);
 		first = first->next;
 	}
 	//readListPointers(first_LP);
@@ -68,7 +72,7 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 	int addedCores;
 
 
-	while (!loopExit)
+	while (!loopExit&& (residualCores>0))
 	{
 
 		if (auxPointer == NULL) loopExit = 1;
@@ -80,16 +84,22 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 
 			//addedCores = MIN(, auxPointer->app->bound_d);
 
-			if ((auxPointer->app->currentCores_d + potentialDeltaCores) > auxPointer->app->bound_d){
-				addedCores=auxPointer->app->bound_d-auxPointer->app->currentCores_d ;
-				auxPointer->app->currentCores_d =auxPointer->app->bound_d;
+			if ((auxPointer->app->currentCores_d + potentialDeltaCores) > auxPointer->app->bound){
+				addedCores = auxPointer->app->bound - auxPointer->app->currentCores_d ;
+				auxPointer->app->currentCores_d = auxPointer->app->bound;
+
 
 			}
 			else{
-				auxPointer->app->currentCores_d =auxPointer->app->currentCores_d + potentialDeltaCores;
+				auxPointer->app->currentCores_d = auxPointer->app->currentCores_d + potentialDeltaCores;
 				addedCores=potentialDeltaCores;
 			}
 
+			if (auxPointer->app->currentCores_d == 0)
+			{
+				printf("\nFatal Error: FixInitialSolution: app %s has %d cores after fix\n", auxPointer->app->app_id, auxPointer->app->currentCores_d);
+				exit(-1);
+			}
 			if (addedCores > 0)
 			{
 				//auxPointer->app->currentCores_d+= addedCores;
@@ -122,6 +132,7 @@ int main(int argc, char **argv)
     double v;
     double D;
     double csi;
+    char * session_app_id;
     char * app_id;
     char * St;
     int DatasetSize;
@@ -144,6 +155,14 @@ int main(int argc, char **argv)
 
     if (argc < 4) Usage();
 
+    /* Connect to the db */
+    MYSQL *conn = DBopen(
+            			parseConfigurationFile("OptDB_IP", XML),
+    					parseConfigurationFile("OptDB_user", XML),
+    					parseConfigurationFile("OptDB_pass", XML),
+    					parseConfigurationFile("OptDB_dbName", XML)
+    					);
+    if (conn == NULL) DBerror(conn, "open_db: Opening the database");
 
     // Calculate the time taken
     gettimeofday(&tv_initial_main, NULL);
@@ -177,6 +196,13 @@ int main(int argc, char **argv)
      * Initialize Vars
      */
     sList *first = NULL, *current = NULL;
+    session_app_id = (char *)malloc(MAX_APP_LENGTH);
+    if (session_app_id == NULL)
+    {
+          printf("sessoion_app_id: malloc_failure in main\n");
+          exit(-1);
+    }
+
     app_id = (char *)malloc(MAX_APP_LENGTH);
     if (app_id == NULL)
     {
@@ -201,6 +227,7 @@ int main(int argc, char **argv)
 
         if ((strlen(line)==0) || (strstr(line, "#")==NULL)) // Skip if it's comment or empty line
         {
+        	strcpy(session_app_id, getfield(tmp, _SESSION_APP_ID));tmp = strdup(line);
         	strcpy(app_id, getfield(tmp, _APP_ID));tmp = strdup(line);
         	w = 	atof(getfield(tmp, _W));tmp = strdup(line);
         	chi_0 = atof(getfield(tmp, _CHI_0));tmp = strdup(line);
@@ -214,23 +241,15 @@ int main(int argc, char **argv)
         	DatasetSize = 	atoi(getfield(tmp, _Dsz));
         	csi = getCsi(M/m, V/v);
         	/* Add application parameters to the List */
-        	addParameters(&first, &current, app_id, w, chi_0, chi_C, m, M, V, v, D, csi, St, DatasetSize);
+        	addParameters(&first, &current, session_app_id, app_id, w, chi_0, chi_C, m, M, V, v, D, csi, St, DatasetSize);
+
         	rows++;
         	free(tmp);
         }
 
     }
 
-    /*
-      * Connect to the db
-    */
-        MYSQL *conn = DBopen(
-        					parseConfigurationFile("OptDB_IP", XML),
-							parseConfigurationFile("OptDB_user", XML),
-							parseConfigurationFile("OptDB_pass", XML),
-							parseConfigurationFile("OptDB_dbName", XML)
-							);
-        if (conn == NULL) DBerror(conn, "open_db: Opening the database");
+
 
 
     /*
@@ -240,10 +259,18 @@ int main(int argc, char **argv)
      * -	Find the bounds
      */
     calculate_Nu(conn, argv[1], first, N);
+/*
+    while (first!=NULL)
+    {
+    	printf("%s w(%d) nu(%lf) %d\n", first->app_id, first->w, first->nu_d, first->currentCores_d);
+    	first=first->next;
+    }
+*/
 
     gettimeofday(&tv_final_nu, NULL);
 
-    checkTotalCores(first, N);
+    /* Calculate baseFO for erach application */
+    initialize(conn, first);
 
     gettimeofday(&tv_initial_fix, NULL);
 
@@ -268,6 +295,7 @@ int main(int argc, char **argv)
 
     gettimeofday(&tv_final_main, NULL);
 
+    //printOutput(first);
     printf("FixInitial step elapsed time: %lf\n", elapsedTime(tv_initial_fix, tv_final_fix));
     printf("FIndbounds (including Nu computation) elapsed time: %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
     printf("LocalSearch step elapsed time: %lf\n", elapsedTime(tv_initial_locals, tv_final_locals));

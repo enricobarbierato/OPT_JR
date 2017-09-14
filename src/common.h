@@ -15,7 +15,7 @@
 #define OTHER_APPS 1
 
 #define MAX_APP_LENGTH 1024
-
+#include "db.h"
 
 
 #define  XML 1
@@ -33,7 +33,7 @@ struct Best
 
 
 /* Templates */
-
+double retrieveTimeFromDBCash(MYSQL *, char *, int , int  );
 char * MPI_PrepareCmd(char * , char * , char *, char * , int);
 double max(double, double);
 int doubleCompare(double, double);
