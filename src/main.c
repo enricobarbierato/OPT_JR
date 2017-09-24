@@ -40,8 +40,8 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 
 	while (first != NULL)
 	{
-		int currentcores1 =first->currentCores_d;
-		double currentcores2=max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
+		//int currentcores1 =first->currentCores_d;
+		//double currentcores2=max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
 
 
 		first->currentCores_d = max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
@@ -49,7 +49,7 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 			first->currentCores_d = first->bound;
 		else
 			{
-				printf("adding %s to ListPointers\n", first->app_id);
+				printf("adding %s to ListPointers\n", first->session_app_id);
 				addListPointers(&first_LP, first);
 			}
 
@@ -57,7 +57,7 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 		// TODO Handle insert in such a way the list is sorted by weight -> DONE
 
 		allocatedCores+= first->currentCores_d;
-		printf("***fixInitialSolution FIXING CORES*** %s %d\n", first->app_id, first->currentCores_d);
+		printf("***fixInitialSolution FIXING CORES*** %s %d\n", first->session_app_id, first->currentCores_d);
 		first = first->next;
 	}
 	//readListPointers(first_LP);
@@ -97,16 +97,16 @@ sListPointers * fixInitialSolution(sList *applications, int N)
 
 			if (auxPointer->app->currentCores_d == 0)
 			{
-				printf("\nFatal Error: FixInitialSolution: app %s has %d cores after fix\n", auxPointer->app->app_id, auxPointer->app->currentCores_d);
+				printf("\nFatal Error: FixInitialSolution: app %s has %d cores after fix\n", auxPointer->app->session_app_id, auxPointer->app->currentCores_d);
 				exit(-1);
 			}
 			if (addedCores > 0)
 			{
 				//auxPointer->app->currentCores_d+= addedCores;
 
-				printf("adding cores to App %s, %d \n", auxPointer->app->app_id, addedCores);
+				printf("adding cores to App %s, %d \n", auxPointer->app->session_app_id, addedCores);
 
-				printf(" applicationid %s new cores %d moved cores %d\n", auxPointer->app->app_id, (int)auxPointer->app->currentCores_d, addedCores);
+				printf(" applicationid %s new cores %d moved cores %d\n", auxPointer->app->session_app_id, (int)auxPointer->app->currentCores_d, addedCores);
 
 				residualCores = residualCores - addedCores;
 			}
@@ -144,6 +144,8 @@ int main(int argc, char **argv)
     struct timeval  tv_initial_main,
     				tv_initial_nu,
     				tv_final_nu,
+					tv_initial_init,
+					tv_final_init,
     				tv_initial_fix,
     				tv_final_fix,
     				tv_initial_locals,
@@ -155,12 +157,14 @@ int main(int argc, char **argv)
 
     if (argc < 4) Usage();
 
+    sConfiguration *configuration = readConfigurationFile();
+
     /* Connect to the db */
     MYSQL *conn = DBopen(
-            			parseConfigurationFile("OptDB_IP", XML),
-    					parseConfigurationFile("OptDB_user", XML),
-    					parseConfigurationFile("OptDB_pass", XML),
-    					parseConfigurationFile("OptDB_dbName", XML)
+            			getConfigurationValue(configuration, "OptDB_IP"),
+    					getConfigurationValue(configuration, "OptDB_user"),
+    					getConfigurationValue(configuration, "OptDB_pass"),
+    					getConfigurationValue(configuration, "OptDB_dbName")
     					);
     if (conn == NULL) DBerror(conn, "open_db: Opening the database");
 
@@ -172,7 +176,7 @@ int main(int argc, char **argv)
     /*
      * Find where the file has been uploaded and determine absolute file path
      */
-    char *folder = parseConfigurationFile("UPLOAD_HOME", XML);
+    char *folder = getConfigurationValue(configuration, "UPLOAD_HOME");
     char *filename = strcat(folder, "/");
     filename = strcat(folder, argv[1]);
 
@@ -199,7 +203,7 @@ int main(int argc, char **argv)
     session_app_id = (char *)malloc(MAX_APP_LENGTH);
     if (session_app_id == NULL)
     {
-          printf("sessoion_app_id: malloc_failure in main\n");
+          printf("session_app_id: malloc_failure in main\n");
           exit(-1);
     }
 
@@ -258,7 +262,7 @@ int main(int argc, char **argv)
      * -	Store each value in a db table
      * -	Find the bounds
      */
-    calculate_Nu(conn, argv[1], first, N);
+    calculate_Nu(configuration, conn, argv[1], first, N);
 /*
     while (first!=NULL)
     {
@@ -269,8 +273,10 @@ int main(int argc, char **argv)
 
     gettimeofday(&tv_final_nu, NULL);
 
+    gettimeofday(&tv_initial_init, NULL);
     /* Calculate baseFO for erach application */
-    initialize(conn, first);
+    initialize(configuration, conn, first);
+    gettimeofday(&tv_final_init, NULL);
 
     gettimeofday(&tv_initial_fix, NULL);
 
@@ -279,7 +285,7 @@ int main(int argc, char **argv)
 
     /* Invoke localSearch */
     gettimeofday(&tv_initial_locals, NULL);
-    localSearch(conn, first, N, MAX_PROMISING_CONFIGURATIONS);
+    localSearch(configuration, conn, first, N, MAX_PROMISING_CONFIGURATIONS);
     gettimeofday(&tv_final_locals, NULL);
 
     printf("Final solution\n");
@@ -297,7 +303,8 @@ int main(int argc, char **argv)
 
     //printOutput(first);
     printf("FixInitial step elapsed time: %lf\n", elapsedTime(tv_initial_fix, tv_final_fix));
-    printf("FIndbounds (including Nu computation) elapsed time: %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
+    printf("Findbounds (including Nu computation) elapsed time: %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
+    printf("Initialization elapsed time %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
     printf("LocalSearch step elapsed time: %lf\n", elapsedTime(tv_initial_locals, tv_final_locals));
     printf("Overall elapsed time: %lf\n", elapsedTime(tv_initial_main, tv_final_main));
 

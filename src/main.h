@@ -10,6 +10,7 @@
 #include "common.h"
 
 
+
 #define NODES 0;
 
 const int MAX_LINE_LENGTH = 1024;
@@ -28,13 +29,13 @@ const int _D = 10;
 const int _St = 11;
 const int _Dsz = 12;
 
-void findBound(MYSQL *conn, char *,  sList *);
-void localSearch(MYSQL *conn, sList *, int, int);
-void calculate_Nu(MYSQL *, char * , sList *, int);
-void initialize(MYSQL *, sList * );
+void findBound(sConfiguration *, MYSQL *conn, char *,  sList *);
+void localSearch(sConfiguration *, MYSQL *conn, sList *, int, int);
+void calculate_Nu(sConfiguration *, MYSQL *, char * , sList *, int);
+void initialize(sConfiguration *, MYSQL *, sList * );
 void split (char str[], int *a, int *b);
-int ObjFunctionComponent(sList * );
-
+int ObjFunctionComponent(sConfiguration *, sList * );
+sConfiguration * readConfigurationFile();
 
 
 

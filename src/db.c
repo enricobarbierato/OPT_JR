@@ -19,30 +19,30 @@ void DBerror(MYSQL *conn, char * msg)
 }
 
 
-double executeSQL(MYSQL *conn, char *statement)
+MYSQL_ROW executeSQL(MYSQL *conn, char *statement)
 {
 	MYSQL_RES *result;
-	MYSQL_ROW rowdata;
-	char errorMsg[256];
+	char error[256];
 
-	if (conn == NULL)
-	  {
-	      fprintf(stderr, "DBError: %s %s\n", statement, mysql_error(conn));
-	      exit(1);
-	  }
-
-	/* Check if the query has returned at least a row */
 	if (mysql_query(conn, statement))
-			DBerror(conn, "SQL failure executeSQL)\n");
-
-	result = mysql_store_result(conn);
-	if (result)
 	{
-		rowdata = mysql_fetch_row(result);
-		if (rowdata)  return atof(rowdata[0]);
+		char error[512];
+		sprintf(error,"SQL failure executeSQL on %s", statement);
+		DBerror(conn, error);
 	}
 
-return(-1);
+
+	result = mysql_store_result(conn);
+	printf("statement %s\n", statement);
+	if (result == NULL)
+	{
+		sprintf(error, "Failure: ExecuteSQL: statement was %s\n", statement);
+		DBerror(conn, error);
+		return NULL;
+	}
+	else
+		return(mysql_fetch_row(result));
+
 }
 /*
  * Open a DB connection
@@ -73,25 +73,4 @@ void DBclose(MYSQL *conn)
 	mysql_close(conn);
 }
 
-/*
- * Insert a row in opt table
- */
-void DBinsertrow(MYSQL * conn, char *id, char *app_id, float nu)
-{
-	char * values = (char *)malloc(2048);
-	char nuS[__SIZEOF_FLOAT__];
 
-	strcpy(values, "INSERT INTO OPT_SESSIONS_RESULTS VALUES('");
-	strcat(values, id);
-	strcat(values, "','");
-	strcat(values, app_id);
-	strcat(values, "',");
-	sprintf(nuS, "%g", nu);
-	strcat(values, nuS);
-	strcat(values, ");");
-
-printf("%s\n", values);
-	//if (mysql_query(conn, values))
-	//	DBerror(conn, "DBinsertrow failure");
-
-}

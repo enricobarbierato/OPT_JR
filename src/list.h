@@ -27,6 +27,15 @@ struct AlphaBetaManagement
 };
 typedef struct AlphaBetaManagement sAlphaBetaManagement;
 
+
+struct Configuration
+{
+	char * variable;
+	char *value;
+	struct Configuration *next;
+};
+typedef struct Configuration sConfiguration;
+
 struct List
 {
 	/* Way to invoke the algorithm */
@@ -121,11 +130,12 @@ typedef struct aux sAux;
 /*
  * Function templates
  */
-
+void printConfigurationFile(sConfiguration *pointer);
+char *getConfigurationValue(sConfiguration *pointer, char * variable);
 void addCacheParameters(sPredictorCash ** , sPredictorCash ** ,  char * , int , int , double );
 void printCacheParameters(sPredictorCash * );
 double searchCacheParameters(sPredictorCash * , char * , int , int );
-
+char * extractItem(const char *const string, const char *const left, const char *const right);
 void readStatistics(sStatistics *);
 void freeStatisticsList(sStatistics * );
 void addStatistics(sStatistics ** , sStatistics ** , int , int, double );

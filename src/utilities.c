@@ -59,25 +59,7 @@ char * readFolder(char *  path)
 	    return NULL;
 }
 
-double retrieveTimeFromDBCash(MYSQL *conn, char *appId, int datasize, int ncores )
-{
 
-	char output1[1024];
-	/* Update the cash table */
-	char statement[1024];
-	sprintf(statement, "select value from %s.PREDICTOR_CASH_TABLE where application_id=\'%s\' and "
-								"dataset_size=%d and phi_mem=\'8G\' and num_cores_opt = %d;",
-								parseConfigurationFile("OptDB_dbName", XML),
-								appId,
-								datasize,
-								ncores);
-	printf("SQL statement: %s\n", statement);
-	// TO DO the value stored must be the residual, not the entire system time returned by dagSim
-	return executeSQL(conn, statement);
-
-
-
-}
 
 
 
@@ -90,7 +72,7 @@ double retrieveTimeFromDBCash(MYSQL *conn, char *appId, int datasize, int ncores
  * 								Currently is not used
  *
  */
-char * LundstromPredictor(int nValue, char * appId)
+char * LundstromPredictor(sConfiguration *configuration, int nValue, char * appId)
 {
 
 struct Best best;
@@ -98,7 +80,7 @@ struct Best best;
 
 /* Get best configuration */
 	    best = bestMatch(
-	    		parseConfigurationFile("RESULTS_HOME", 1),
+	    		getConfigurationValue(configuration,"RESULTS_HOME"),
 	    		nValue);
 
 	    char cmd[1024];
@@ -123,7 +105,7 @@ struct Best best;
 		strcat(parameters, appId);
 
 	    strcpy(cmd, "cd ");
-	    strcat(cmd, parseConfigurationFile("LUNDSTROM_HOME", 1));
+	    strcat(cmd, getConfigurationValue(configuration,"LUNDSTROM_HOME"));
 	    strcat(cmd, ";");
 	    strcat (cmd, "python run.py ");
 	    strcat(cmd, parameters);
@@ -153,40 +135,7 @@ void Usage()
 
 
 
-/*
- * 		Name:					extractWord
- * 		Input parameters:		char * source, int position
- * 		Output parameters:		A word
- * 		Description:			This function extracts a word in a line at a certain position (1st word, 2nd word, etc.). The words are separated by a space
- * 								Note: This function is possibly redundant. Currently it is used to extract information from a folder such as 2_4_8G_500
- *
- */
 
-char * extractWord(char * source, int position)
-{
-
-	char *dest = malloc(16);
-	int  i = 0, j=0;
-	int cont;
-	char sep;
-
-
-	sep = '_';
-	for (cont=1; cont<= position; cont++)
-	{
-		while (source[i] != sep && i < strlen(source))
-		{
-			if (cont == position) dest[j++] = source[i];
-			i++;
-		}
-		i++;
-	}
-
-	dest[j] = '\0';
-
-	return dest;
-
-}
 
 
 /*
@@ -272,131 +221,41 @@ double getCsi(double a, double b)
 	 else return a;
 }
 
-/*
- * 		Name:					parseConfigurationFile
- * 		Input parameters:		char *variable, int xml
- * 		Output parameters:		The value (char *) of a variable
- * 		Description:			It fetches the value of a variable in wsi_config.xml file
- *
- */
-char * parseConfigurationFile(char *variable, int xml)
+
+
+char * extractItem(const char *const string, const char *const left, const char *const right)
 {
-FILE * fp;
-    char * line = NULL;
-    size_t len = 0;
-    ssize_t read;
-    int found = 0;
-    char * configurationFile = malloc(64);
-    char * newString;
+    char  *head;
+	    char  *tail;
+	    size_t length;
+	    char  *result;
 
-    strcpy(configurationFile, getenv("HOME"));
-    if (xml == 0) strcat(configurationFile, "/.ws_properties");
-    else
-    	{
-    		configurationFile = getenv("WSI_CONFIG_FILE");
+	    if ((string == NULL) || (left == NULL) || (right == NULL))
+	        return NULL;
+	    length = strlen(left);
+	    head   = strstr(string, left);
+	    if (head == NULL)
+	        return NULL;
+	    head += length;
+	    tail  = strstr(head, right);
+	    if (tail == NULL)
+	        return tail;
+	    length = tail - head;
+	    result = malloc(1 + length);
+	    if (result == NULL)
+	        return NULL;
+	    result[length] = '\0';
 
-    		if (configurationFile == NULL)
-    		{
-    			printf("Fatal error: WSI_CONFIG_FILE environment variable was not defined.\n");
-    			exit(-1);
-    		}
-
-    	}
-
-    fp = fopen(configurationFile , "r");
-    if (fp == NULL)
-    {
-    	if (xml == 0) printf(".ws_properties "); else printf("wsi_config.xml");
-    	printf(" configuration file not found in home directory: (%s)\n", configurationFile);
-    	free(configurationFile);
-        exit(-1);
-    }
-
-    while ((read = getline(&line, &len, fp)) != -1)
-    {
-    	if (strstr(line, variable) != NULL)
-    	{
-    		found = 1;
-    		break;
-    	}
-    }
-
-    if (!found)
-    {
-    	printf("Could not find %s environment variable.", variable);
-    	exit(-2);
-    }
+	    memcpy(result, head, length);
+	    return result;
 
 
-    	int len1 = strlen(line);
 
-    	/*
-    	 * Remove \n from the string
-    	 */
-    	char *newLine = malloc(1024);
-    	strncpy(newLine, line, strlen(line)-1);
-    	len1 = strlen(newLine);
 
-    	fclose(fp);
-    	if (line) free(line);
-
-    	if (xml == 0) newString = strstr(newLine, "=");
-    	else
-    		{
-    		newString = strstr(newLine, ">") + 1;
-    		int pos = strstr(newString, "<") - newString -1;
-    		newString[pos+1] = '\0';
-    		return newString;
-    		}
-
-    return(newString+1);
 }
 
 
 
-char * MPI_PrepareCmd(char * path, char * subfolder, char *appId, char * lua, int index)
-{
-	char *cmd = (char *)malloc(1024);
-
-
-	sprintf(path, "%s/%s/logs", parseConfigurationFile("FAKE", 1), appId);printf("%s", path);
-	strcpy(subfolder, readFolder(path));
-	sprintf(cmd, "ls %s/%s/*.lua", path, subfolder);
-	strcpy(lua, _run(cmd));
-	/* Remove /n from the lua filename */
-	lua[strlen(lua)-1] = '\0';
-	sprintf(cmd, "cp %s /tmp/test%d.lua", lua, index);
-
-	return cmd;
-}
-
-char * MPI_prepareOutput(int index)
-{
-	char cmd[1024];
-	char *output1;
-	//output2[64];
-
-	output1 = (char *)malloc(64);
-
-
-
-/*
-	// Extract third row waiting time only of system metrics output
-	sprintf(cmd, "cat /tmp/output%d|sed '3q;d'|awk '{print $3}'", index);
-	strcpy(output1, _run(cmd));
-	// Extract from task second row first time value
-	sprintf(cmd, "grep %s /tmp/output%dsed '2q;d'|awk '{print $4}');
-	strcpy(output2, _run(cmd));
-	//grep M1 /tmp/output0|sed '2q;d'|awk '{print $4}'
-	strcpy(output2, _run(cmd));
-	sprintf(output1, "%d", atoi(output2) - atoi(output1));
-
-	*/
-	sprintf(cmd, "cat /tmp/output%d|head -n1|awk '{print $3;}'", index);
-	strcpy(output1, _run(cmd));
-
-	return output1;
-}
 
 
 /*
@@ -481,31 +340,226 @@ struct Best bestMatch(char * path, int nValue)
  */
 char *_run(char * cmd)
 {
-	int BUFSIZE = 1024;
+	int BUFSIZE = 10240;
+	int outcome;
 
 	char *buf = (char *)malloc(BUFSIZE);
+	if (buf == NULL)
+	{
+		printf("Malloc failure: _run\n");
+		exit(-1);
+	}
 	    FILE *fp;
 
-	    //printf("Executing %s\n", cmd);
+
 	    if ((fp = popen(cmd, "r")) == NULL) {
-	        printf("Could not open pipe\n");
-	        return NULL;
+	        printf("Fatal Error: _run: %s _cmd %s (%d)\n", strerror(errno), cmd, errno);
+	        exit(-1);
 	    }
 
 	    while (fgets(buf, BUFSIZE, fp) != NULL) {
 
-	        //printf("OUTPUT: %s", buf);
+	        printf("OUTPUT: %s", buf);
 
 	    }
-
-	    if(pclose(fp))  {
+	    outcome = pclose(fp);
+	    if(outcome == -1)  {
 	        printf("Command %s not found or exited with error status\n", cmd);
-	        return NULL;
-	    }
+	        exit(-1);
+	    } else printf("_cmd has returned %d status\n", outcome);
 
 	  return buf;
 }
 
 
 
+char * ls(char * pattern)
+{
+	glob_t pglob;
+	char *filename = (char *)malloc(1024);
 
+	 int outcome = glob(pattern, GLOB_ERR, NULL, &pglob);
+
+	 if (pglob.gl_pathc == 1)
+	 	  {
+	 		  printf("ls: %s\n", pglob.gl_pathv[0]);
+	 		  strcpy(filename, pglob.gl_pathv[0]);
+	 		  globfree(&pglob);
+	 		  return filename;
+	 	  }
+	 	  else
+	 	  {
+	 		  switch(outcome)
+	 		  {
+	 		  	  case GLOB_NOSPACE:
+	               printf("Fatal error: ls: running out of memory: %s\n", pattern);
+	               exit(-1);
+	 	 	 	 	 break;
+	 		  	  case GLOB_ABORTED:
+	               printf("Fatal error: ls: a read error has occurred%s\n", pattern);
+	               exit(-1);
+	               break;
+	 		  	  case GLOB_NOMATCH:
+	               printf("Fatal error: ls: no matches found%s\n", pattern);
+	               exit(-1);
+	 		  	  default:
+	    	  	   printf("Fatal error: ls: unknown error%s\n", pattern);
+	    	  	   exit(-1);
+	 		  }
+	 	  }
+
+
+
+	  return NULL;
+}
+
+
+char * extractRowN(char *text, int row)
+{
+	int len = strlen(text);
+	int iText, iLine = 0;
+	char * line = (char *)malloc(BIG_LINE);
+	if (line == NULL)
+	{
+		printf("Malloc failure: edxtractRowN\n");
+		exit(-1);
+	}
+	int countRow = 0;
+
+
+	iText = 0;
+	strcpy(line, "");
+
+	while ( countRow < row && iText < len)
+	{
+		iLine = 0;
+		while(text[iText] != '\n' &&
+				iText < strlen(text))
+		{
+
+			line[iLine++] = text[iText++];
+		}
+		countRow++;
+		iText++;
+	}
+
+	if (row > countRow) return "stop";
+	line[iLine] = '\0';
+
+	if (line == NULL)
+	{
+		printf("Fatal error: extractRowN: returned string cannot be NULL\n");
+		exit(-1);
+	}
+	return line;
+
+}
+
+char * extractWord(char * line, int pos)
+{
+char *word = (char *)malloc(64);
+if (word == NULL)
+{
+	printf("Malloc failure: extractWord\n");
+	exit(-1);
+}
+
+int lineIndex = 0;
+int wordIndex = 0;
+int len = strlen(line);
+int countwords = 0;
+
+while (lineIndex <= len)
+{
+	if (line[lineIndex] != '\t') word[wordIndex++] = line[lineIndex++];
+	else
+	{
+		countwords++;
+		if (countwords == pos)
+		{
+			word[wordIndex] = '\0';
+			break;
+		}
+		wordIndex = 0;
+		lineIndex++;
+	}
+
+}
+if (word == NULL)
+{
+	printf("Fatal error: extracWord: returned string is NULL\n");
+	exit(-1);
+}
+return word;
+}
+
+
+
+void writeFile(const char *filepath, const char *data)
+{
+    FILE *fp = fopen(filepath, "w");
+    if (fp != NULL)
+    {
+        fputs(data, fp);
+        fclose(fp);
+    }
+}
+
+char * replace(char * text, char *newLine)
+{
+
+	int lineCount;
+	char line[BIG_LINE];
+	char *newText = (char *)malloc(BIG_TEXT);
+	if (newText == NULL)
+	{
+		printf("Malloc failure: replace\n");
+		exit(-1);
+	}
+
+	lineCount = 1;
+
+	strcpy(newText, "");
+	strcpy(line, extractRowN(text, lineCount));
+	while ( strcmp(line, "stop") != 0)
+	{
+
+		if (strstr(line, "Nodes") != NULL) strcat(newText, newLine);
+		else strcat(newText, line);
+		strcat(newText, "\n");
+		lineCount++;
+		strcpy(line, extractRowN(text, lineCount));
+	}
+	return newText;
+}
+
+int read_line(FILE *in, char *buffer, size_t max)
+{
+  return fgets(buffer, max, in) == buffer;
+}
+
+char * readFile(char * filename)
+{
+	   struct stat sb;
+	   stat(filename, &sb);
+
+	   FILE *fp=fopen(filename, "r");
+	   if (fp == NULL)
+	   {
+		   printf("Fatal error: readFile: could not open %s\n", filename);
+		   exit(-1);
+	   }
+
+	   char *str=malloc(sb.st_size+1);
+	   if (str == NULL)
+	   {
+		   printf("Malloc failure: readFile\n");
+		   exit(-1);
+	   }
+	   fread(str, 1, sb.st_size, fp);
+
+	   fclose(fp);
+	   str[sb.st_size]=0;
+
+	   return str;
+}

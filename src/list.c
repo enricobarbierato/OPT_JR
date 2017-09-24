@@ -106,13 +106,19 @@ void addParameters(sList ** first,   sList ** current, char *session_app_id, cha
 
 
 
-sList * searchApplication(sList * first, char *appId)
+sList * searchApplication(sList * first, char *session_appId)
 {
 	while (first != NULL)
 	{
-		if (strcmp(first->app_id, appId) == 0) return first;
+		if (strcmp(first->session_app_id, session_appId) == 0) return first;
 		first = first->next;
 	}
+	if (first == NULL)
+	{
+		printf("Fatal Error: searchApplication: could not find session application id %s\n", session_appId);
+		exit(-1);
+	}
+
 	return NULL;
 }
 
@@ -164,16 +170,16 @@ void printRow(sList *pointer)
 			pointer->session_app_id, pointer->app_id, pointer->w, pointer->nu_d, pointer->boundIterations, pointer->currentCores_d, (int)pointer->nCores_DB_d);
 }
 
-void commitAssignment(sList *pointer, char *appId,  double DELTA)
+void commitAssignment(sList *pointer, char *session_appId,  double DELTA)
 {
 
 	while (pointer != NULL)
-		if (strcmp(pointer->app_id, appId) == 0) break;
+		if (strcmp(pointer->session_app_id, session_appId) == 0) break;
 		else pointer = pointer->next;
 
 	if (pointer == NULL)
 	{
-		printf("Application %s not found in the list\n", appId);
+		printf("Application %s not found in the list\n", session_appId);
 		exit(-1);
 	}
 
@@ -188,7 +194,7 @@ void commitAssignment(sList *pointer, char *appId,  double DELTA)
 
 
 	pointer->currentCores_d = pointer->currentCores_d + DELTA*pointer->V;
-	printf("Committed %s currentCores = %d\n", pointer->app_id, (int)pointer->currentCores_d);
+	printf("Committed %s currentCores = %d\n", pointer->session_app_id, (int)pointer->currentCores_d);
 
 
 }
@@ -204,15 +210,15 @@ void commitAssignment(sList *pointer, char *appId,  double DELTA)
  */
 void freeApplicationList(sListPointers * pointer)
 {
-	sListPointers * next;
+	sListPointers * tmp;
 
-	while (pointer != NULL)
-	    {
-		//if (pointer->app != NULL) free(pointer->app);
-	       next = pointer;
-	       pointer = pointer->next;
-	       if (next != NULL) free(next);
-	    }
+
+		while (pointer != NULL)
+		    {
+		       tmp = pointer;
+		       pointer = pointer->next;
+		       free(tmp);
+		    }
 }
 
 /*
@@ -224,14 +230,15 @@ void freeApplicationList(sListPointers * pointer)
  */
 void freeParametersList(sList * pointer)
 {
-	sList * next;
+	sList * tmp;
 
 	while (pointer != NULL)
-	    {
-	       next = pointer;
-	       pointer = pointer->next;
-	       if (next != NULL) free(next);
-	    }
+			    {
+			       tmp = pointer;
+			       pointer = pointer->next;
+			       free(tmp);
+			    }
+
 }
 
 
@@ -246,35 +253,28 @@ void freeParametersList(sList * pointer)
  */
 void freeAuxList(sAux * pointer)
 {
-	sAux * next;
-	if (pointer == NULL) return;
-
+	sAux * tmp;
 	while (pointer != NULL)
-	    {
-	       next = pointer;
-	       pointer = pointer->next;
-	       if (next != NULL) free(next);
-	    }
+			    {
+			       tmp = pointer;
+			       pointer = pointer->next;
+			       free(tmp);
+			    }
+
 }
 
 
 void freeStatisticsList(sStatistics * pointer)
 {
-	sStatistics * next;
+	sStatistics * tmp;
 
-	if (pointer == NULL)
-	{
-		printf("Warning: Statistics list is empty\n");
-		return;
-	}
-	printf("Statistics \n");
 	while (pointer != NULL)
-	    {
-		//if (pointer->app != NULL) free(pointer->app);
-	       next = pointer;
-	       pointer = pointer->next;
-	       if (next != NULL) free(next);
-	    }
+			    {
+			       tmp = pointer;
+			       pointer = pointer->next;
+			       free(tmp);
+			    }
+
 }
 
 
@@ -312,7 +312,7 @@ int checkTotalCores(sList * pointer, double N)
 
 	while (pointer!= NULL)
 	{
-		printf("app %s currentCores %d", pointer->app_id, (int)pointer->currentCores_d);
+		printf("app %s currentCores %d", pointer->session_app_id, (int)pointer->currentCores_d);
 		tot = tot + pointer->currentCores_d;
 		pointer = pointer->next;
 	}
@@ -384,76 +384,7 @@ void addAuxParameters(sAux ** first, sAux ** current,  sList * app1, sList * app
 }
 
 
-/*
- * 		Name:					addCacheParameters
- * 		Input parameters:		sPredictorCash ** first, sPredictorCash ** current,  int nCores, int datasize, double output
- * 		Output parameters:		Updated pointers to the first and current element of the list
- * 		Description:			This function adds all the information regarding the localSearch deltafo calculation
- *
- */
-void addCacheParameters(sPredictorCash ** first, sPredictorCash ** current,  char * app_id, int nCores, int datasize, double output)
-{
 
-	sPredictorCash *new = (sPredictorCash*) malloc(sizeof(sPredictorCash));
-	  if (new == NULL)
-	  {
-		  printf("addsPredictorCashParameters: Fatal Error: malloc failure\n");
-		  exit(-1);
-	  }
-	  strcpy(new->app_id, app_id);
-	  new->ncores = nCores;
-	  new->datasize = datasize;
-	  new->output = output;
-	  new->next = NULL;
-
-/*
-	  if (*first == NULL) *first = new;
-	  else (*current)->next = new;
-	  *current = new;*/
-
-	  if (*first == NULL) *first = new;
-	 	 	 	  else
-	 	 	 		  if (doubleCompare((*first)->output, output) == 1)
-	 	 	 		  {
-	 	 	 			  new->next = *first;
-	 	 	 			  *first = new;
-	 	 	 		  }
-	 	 	 		  	 else
-	 	 	 			 {
-	 	 	 		  		 sPredictorCash * previous = *first;
-	 	 	 		  		 sPredictorCash * current = (*first)->next;
-
-	 	 	 				 while (current != NULL && doubleCompare(current->output, output) == -1)
-	 	 	 				 {
-	 	 	 					 previous = current;
-	 	 	 					 current = current->next;
-	 	 	 				 }
-
-	 	 	 				 previous->next = new;
-	 	 	 				 new->next = current;
-	 	 	 			 }
-}
-
-void printCacheParameters(sPredictorCash * pointer)
-{
-	while (pointer != NULL)
-	{
-		printf("app_id %s nCores %d datasize %d  output %lf\n", pointer->app_id, pointer->ncores, pointer->datasize, pointer->output);
-		pointer = pointer->next;
-	}
-}
-
-double searchCacheParameters(sPredictorCash * pointer, char * app_id, int nCores, int datasize)
-{
-	while (pointer != NULL)
-		if (strcmp(pointer->app_id, app_id) == 0 && pointer->ncores == nCores && pointer->datasize == datasize)
-			return(pointer->output);
-		else pointer = pointer->next;
-
-	/* The parameter was not found */
-	return -1;
-
-}
 
 /*
  * 		Name:					addStatistics
@@ -488,33 +419,104 @@ void addStatistics(sStatistics ** first, sStatistics ** current, int iteration, 
 
 }
 
-void printOutput(sList * pointer)
+void addConfiguration(sConfiguration ** first, sConfiguration ** current, char * variable, char * value)
 {
-	FILE *fp;
-	char filename[1024];
 
 
+	  sConfiguration *new = (sConfiguration*) malloc(sizeof(sConfiguration));
+	  if (new == NULL)
+	  {
+		  printf("addConfiguration: Fatal Error: malloc failure\n");
+		  exit(-1);
+	  }
 
-	struct timeval tv;
-	gettimeofday(&tv,NULL);
+	  new->variable = (char *)malloc(256);
+	  if (new->variable == NULL)
+	  {
+		  printf("Malloc failure: addConfiguration\n");
+		  exit(-1);
+	  }
+	  new->value = (char *)malloc(256);
+	  if (new->value == NULL)
+	  {
+	  		printf("Malloc failure: addConfiguration\n");
+	  		exit(-1);
+	  }
+
+	  strcpy(new->variable, variable);
+	  strcpy(new->value, value);
+	  new->next = NULL;
 
 
-	strcpy(filename, parseConfigurationFile("OUTPUT_FILE", 1));
-	sprintf(filename, "%s/opt_jr_output.%lf.csv", parseConfigurationFile("OUTPUT_FILE", 1), (double)tv.tv_sec);
-
-	fp=fopen(filename,"w+");
-
-	fprintf(fp, "#AppId, currentCores\n");
-	while (pointer!= NULL)
-	{
-		fprintf(fp,"\n%s,%d",pointer->app_id, pointer->currentCores_d);
-		pointer = pointer->next;
-	}
-
-
-
-	fclose(fp);
+	  if (*first == NULL) *first = new;
+	  else (*current)->next = new;
+	  *current = new;
 }
+
+sConfiguration * readConfigurationFile()
+{
+	FILE * fp;
+	    char * line = NULL;
+	    size_t len = 0;
+	    ssize_t read;
+	    char var[256], val[256],* configurationFile;
+
+	    sConfiguration *first = NULL;
+	    sConfiguration *current = NULL;
+
+	    configurationFile = getenv("WSI_CONFIG_FILE");
+
+	    if (configurationFile == NULL)
+	    {
+	    	printf("Fatal error: WSI_CONFIG_FILE environment variable was not defined.\n");
+	    	exit(-1);
+	    }
+
+	    fp = fopen(configurationFile , "r");
+	    if (fp == NULL)
+	    {
+	    	printf("Fatal Error: parseConfigurationFile: configuration file not found in home directory: (%s)\n", configurationFile);
+	    	exit(-1);
+	    }
+
+
+
+	    while ((read = getline(&line, &len, fp)) != -1)
+	    {
+	       if (line != NULL)
+	    	if (strstr(line, "entry key=") != NULL)
+	    	{
+	    		strcpy(var, extractItem(line, "\"", "\""));
+	    		strcpy(val, extractItem(line, ">", "<"));
+
+	    		addConfiguration(&first, &current, var, val);
+	    	}
+
+	    }
+
+	    return first;
+}
+
+
+
+char *getConfigurationValue(sConfiguration *pointer, char * variable)
+{
+	int found = 0;
+
+	while (!found && pointer != NULL)
+	{
+		if (strcmp(pointer->variable, variable) == 0) found = 1;
+		else pointer = pointer->next;
+	}
+	if (!found)
+	{
+		printf("variable %s not found!\n", variable);
+		exit(-1);
+
+	}
+	else return pointer->value;
+}
+
 
 void readStatistics(sStatistics *pointer)
 {
