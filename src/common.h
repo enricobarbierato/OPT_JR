@@ -16,6 +16,7 @@
 
 #define MAX_APP_LENGTH 1024
 #include "db.h"
+#include "list.h"
 
 
 #define  XML 1
@@ -33,7 +34,13 @@ struct Best
 
 
 /* Templates */
-double retrieveTimeFromDBCash(MYSQL *, char *, int , int  );
+char * ls(char *);
+void writeFile(const char *, const char *);
+char * replace(char * , char *);
+char * extractRowN(char *, int );
+int read_line(FILE *, char *, size_t );
+char * readFile(char * );
+MYSQL_ROW retrieveTimeFromDBCash(MYSQL *conn, char *sessionId, char *appId, int datasize, int ncores );
 char * MPI_PrepareCmd(char * , char * , char *, char * , int);
 double max(double, double);
 int doubleCompare(double, double);
@@ -45,7 +52,7 @@ char * _run(char * );
 char * getfield(char* , int);
 void Usage();
 void howAmIInvoked(char **, int );
-char * LundstromPredictor(int , char * );
+char * LundstromPredictor(sConfiguration *, int , char * );
 char * MPI_prepareOutput(int index);
 double elapsedTime(struct timeval , struct timeval );
 
