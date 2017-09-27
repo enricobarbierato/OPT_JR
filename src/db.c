@@ -8,6 +8,7 @@
 #include <string.h>
 #include "db.h"
 
+
 /*
  * Standard error procedure for DB operations
  */
@@ -19,10 +20,11 @@ void DBerror(MYSQL *conn, char * msg)
 }
 
 
-MYSQL_ROW executeSQL(MYSQL *conn, char *statement)
+MYSQL_ROW executeSQL(MYSQL *conn, char *statement, struct optJrParameters par)
 {
 	MYSQL_RES *result;
 	char error[256];
+	char debugMsg[1024];
 
 	if (mysql_query(conn, statement))
 	{
@@ -33,7 +35,7 @@ MYSQL_ROW executeSQL(MYSQL *conn, char *statement)
 
 
 	result = mysql_store_result(conn);
-	printf("statement %s\n", statement);
+	sprintf(debugMsg, "statement %s\n", statement);debugMessage(debugMsg, par);
 	if (result == NULL)
 	{
 		sprintf(error, "Failure: ExecuteSQL: statement was %s\n", statement);

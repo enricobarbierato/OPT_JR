@@ -131,47 +131,47 @@ sList * searchApplication(sList * first, char *session_appId)
  */
 
 
-void readList(sList *pointer)
+void readList(sList *pointer, struct optJrParameters par)
 {
-	printf("\n\nApplications list content:\n");
+	char debugMsg[DEBUG_MSG];
+
+	sprintf(debugMsg, "\n\nApplications list content:\n");debugInformational(debugMsg, par);
 
 
 	while (pointer!=NULL)
 	{
-		printRow(pointer);
+		printRow(pointer, par);
 		//if (pointer->previous!=NULL) printf("(prev. %lf) ", pointer->previous->T);
 		pointer = pointer->next;
 	}
-	printf("\n");
+	sprintf(debugMsg, "\n");debugMessage(debugMsg, par);
 }
 
-void printRow(sList *pointer)
+void readSolution(sList *pointer)
 {
 
-    /*printf("session_pp_id =%s app_id = %s  w = %lf chi_0 = %lf chi_c_1 = %lf m = %lf M = %lf \n V = %lf v = %lf D = %d R = %lf "
-    		" bound = %lf nu = %lf currentcores = %lf nCores = %lf \n\n ",
-			pointer->session_app_id,
-			pointer->app_id,
-			pointer->w,
-			pointer->chi_0,
-			pointer->chi_C,
-			pointer->m,
-			pointer->M,
-			pointer->V,
-			pointer->v,
-			pointer->Deadline_d,
-			pointer->R_d,
-			pointer->bound_d,
-			pointer->nu_d,
-			pointer->currentCores_d,
-			pointer->nCores_DB_d);
-			*/
-	printf("session_app_id %s app_id %s  weight %d nu %lf iterations to find the bound %d currentcores = %d nCores from DB = %d \n\n",
-			pointer->session_app_id, pointer->app_id, pointer->w, pointer->nu_d, pointer->boundIterations, pointer->currentCores_d, (int)pointer->nCores_DB_d);
+	while (pointer!=NULL)
+	{
+		printf("%s %d\n", pointer->session_app_id, pointer->currentCores_d);
+		pointer = pointer->next;
+	}
+
 }
 
-void commitAssignment(sList *pointer, char *session_appId,  double DELTA)
+
+void printRow(sList *pointer, struct optJrParameters par)
 {
+
+	char debugMsg[DEBUG_MSG];
+
+	sprintf(debugMsg, "session_app_id %s app_id %s  weight %d nu %lf iterations to find the bound %d currentcores = %d nCores from DB = %d \n\n",
+			pointer->session_app_id, pointer->app_id, pointer->w, pointer->nu_d, pointer->boundIterations, pointer->currentCores_d, (int)pointer->nCores_DB_d);debugMessage(debugMsg, par);
+
+}
+
+void commitAssignment(sList *pointer, char *session_appId,  double DELTA, struct optJrParameters par)
+{
+	char debugMsg[DEBUG_MSG];
 
 	while (pointer != NULL)
 		if (strcmp(pointer->session_app_id, session_appId) == 0) break;
@@ -194,7 +194,7 @@ void commitAssignment(sList *pointer, char *session_appId,  double DELTA)
 
 
 	pointer->currentCores_d = pointer->currentCores_d + DELTA*pointer->V;
-	printf("Committed %s currentCores = %d\n", pointer->session_app_id, (int)pointer->currentCores_d);
+	sprintf(debugMsg, "Committed %s currentCores = %d\n", pointer->session_app_id, (int)pointer->currentCores_d);debugMessage(debugMsg, par);
 
 
 }
@@ -518,19 +518,22 @@ char *getConfigurationValue(sConfiguration *pointer, char * variable)
 }
 
 
-void readStatistics(sStatistics *pointer)
+void readStatistics(sStatistics *pointer, struct optJrParameters par)
 {
-	printf("******************************\n");
-	printf("\n\nStatistics list content:\n");
-	printf("******************************\n");
+	char debugMsg[DEBUG_MSG];
+
+	sprintf(debugMsg, " ");debugBanner(debugMsg, par);
+	sprintf(debugMsg, "\n\nStatistics list content:\n");debugMessage(debugMsg, par);
+	sprintf(debugMsg, " ");debugBanner(debugMsg, par);
 
 	printf("Iteration   List Size  Total FO\n");
 	while (pointer!=NULL)
 	{
-		printf("%d %d %lf\n", pointer->iteration, pointer->size, pointer->FO_Total);
+		sprintf(debugMsg, "%d %d %lf\n", pointer->iteration, pointer->size, pointer->FO_Total);debugMessage(debugMsg, par);
+
 		pointer = pointer->next;
 	}
-	printf("\n");
+	sprintf(debugMsg, "\n");debugMessage(debugMsg, par);
 }
 
 void addListPointers(sListPointers ** first,   sList *application)
@@ -579,18 +582,19 @@ void addListPointers(sListPointers ** first,   sList *application)
 }
 
 
-void readListPointers(sListPointers *pointer)
+void readListPointers(sListPointers *pointer, struct optJrParameters par)
 {
-	printf("\n\nListPointers list content:\n");
+	char debugMsg[DEBUG_MSG];
+
+	sprintf(debugMsg, "\n\nListPointers list content:\n");debugMessage(debugMsg, par);
 
 
 	while (pointer!=NULL)
 	{
-		printRow(pointer->app);
-
+		printRow(pointer->app, par);
 		pointer = pointer->next;
 	}
-	printf("\n");
+	sprintf(debugMsg, "\n");debugMessage(debugMsg, par);
 }
 
 
@@ -604,28 +608,31 @@ void readListPointers(sListPointers *pointer)
  */
 
 
-void readAuxList(sAux *pointer)
+void readAuxList(sAux *pointer, struct optJrParameters par)
 {
-	printf("\n\nAuxiliary list content:\n");
+	char debugMsg[DEBUG_MSG];
+
+	sprintf(debugMsg, "\n\nAuxiliary list content:\n");debugMessage(debugMsg, par);
 
 
 	while (pointer!=NULL)
 	{
-		printAuxRow(pointer);
+		printAuxRow(pointer, par);
 		//printf("%lf\n", pointer->deltaFO);
 
 		pointer = pointer->next;
 	}
-	printf("\n");
+	sprintf(debugMsg, "\n");debugMessage(debugMsg, par);
 }
 
-void printAuxRow(sAux *pointer)
+void printAuxRow(sAux *pointer, struct optJrParameters par)
 {
-	printRow(pointer->app1);
-	printRow(pointer->app2);
-    printf("newCoresAssignment1 = %d newCoresAssignment2 = %d Totdelta = %lf delta1 = %lf delta2 = %lf\n\n ",
+	char debugMsg[DEBUG_MSG];
+	printRow(pointer->app1, par);
+	printRow(pointer->app2, par);
+    sprintf(debugMsg, "newCoresAssignment1 = %d newCoresAssignment2 = %d Totdelta = %lf delta1 = %lf delta2 = %lf\n\n ",
     		(int)pointer->newCoreAssignment1, (int)pointer->newCoreAssignment2,
-			pointer->deltaFO, pointer->delta_i, pointer->delta_j);
+			pointer->deltaFO, pointer->delta_i, pointer->delta_j);debugMessage(debugMsg, par);
 }
 
 

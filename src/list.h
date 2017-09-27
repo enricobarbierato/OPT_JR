@@ -10,6 +10,16 @@
 
 #define HYP_INTERPOLATION_POINTS  2
 
+struct optJrParameters
+{
+	char filename[1024];
+	int debug;
+	int cache;
+	int globalFOcalculation;
+	int K;
+	char simulator[1024];
+	int number;
+};
 
 
 struct lastSimulatorRun
@@ -130,32 +140,7 @@ typedef struct aux sAux;
 /*
  * Function templates
  */
-void printConfigurationFile(sConfiguration *pointer);
-char *getConfigurationValue(sConfiguration *pointer, char * variable);
-void addCacheParameters(sPredictorCash ** , sPredictorCash ** ,  char * , int , int , double );
-void printCacheParameters(sPredictorCash * );
-double searchCacheParameters(sPredictorCash * , char * , int , int );
-char * extractItem(const char *const string, const char *const left, const char *const right);
-void readStatistics(sStatistics *);
-void freeStatisticsList(sStatistics * );
-void addStatistics(sStatistics ** , sStatistics ** , int , int, double );
-void freeParametersList(sList * pointer);
-void freeApplicationList(sListPointers * pointer);
-void readList(sList *);
-void printRow(sList *);
-void addParameters(sList ** ,  sList **, char *, char *, double , double  , double , double , double , double , double , double , double, char *, int  );
-void freeAuxList(sAux * pointer);
-void readAuxList(sAux *);
-void printAuxRow(sAux *);
-void freeAuxList(sAux * );
-void addAuxParameters(sAux ** , sAux ** ,  sList * , sList * , int , int , double, double, double);
-void commitAssignment(sList *, char *,  double );
-sAux * findMinDelta(sAux * );
-int checkTotalCores(sList * pointer, double N);
-sList * searchApplication(sList * , char *);
-void addListPointers(sListPointers ** ,  sList *);
-void printRow(sList *);
-void readListPointers(sListPointers *);
+
 
 
 #endif /* LIST_H_ */

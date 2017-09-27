@@ -10,17 +10,112 @@
 #include "localSearch.h"
 #include "db.h"
 
-
-#define MAX_ITERATIONS 10
-#define PREDICTOR DAGSIM
-
-
-//#define GLOBAL_PRINT YES
 #define CACHE YES
+#define GLOBAL_PRINT YES
 
 
-sAux * approximatedLoop(sList *first_i, int *iteration )
+sListPointers * fixInitialSolution(sList *applications,  struct optJrParameters par)
 {
+	sList * first;
+	int allocatedCores;
+	sListPointers * first_LP = NULL;
+	int loopExit = 0;
+	sListPointers *auxPointer;
+	int residualCores;
+	char debugMsg[DEBUG_MSG];
+	int N = par.number;
+
+	allocatedCores = 0; // TODO To be changed into INT ->DONE
+
+	first = applications;
+
+	while (first != NULL)
+	{
+		//int currentcores1 =first->currentCores_d;
+		//double currentcores2=max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
+
+
+		first->currentCores_d = max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
+		if (first->currentCores_d > first->bound)
+			first->currentCores_d = first->bound;
+		else
+			{
+				sprintf(debugMsg, "adding %s to ListPointers\n", first->session_app_id);debugMessage(debugMsg, par);
+				addListPointers(&first_LP, first);
+			}
+
+		// Danilo Application (suffering) insert in the new list
+		// TODO Handle insert in such a way the list is sorted by weight -> DONE
+
+		allocatedCores+= first->currentCores_d;
+		sprintf(debugMsg, "fixInitialSolution FIXING CORES %s %d\n", first->session_app_id, first->currentCores_d);debugMessage(debugMsg, par);
+		first = first->next;
+	}
+	//readListPointers(first_LP);
+
+	sprintf(debugMsg,"fixInitialSolution: allocatedCores %d\n", allocatedCores);debugMessage(debugMsg, par);
+
+	auxPointer = first_LP;
+
+
+
+	residualCores = N - allocatedCores;
+	int addedCores;
+
+
+	while (!loopExit&& (residualCores>0))
+	{
+
+		if (auxPointer == NULL) loopExit = 1;
+		else
+		{
+			// cores assignment
+
+			int potentialDeltaCores=((int)(residualCores / auxPointer->app->V) )* auxPointer->app->V;
+
+			//addedCores = MIN(, auxPointer->app->bound_d);
+
+			if ((auxPointer->app->currentCores_d + potentialDeltaCores) > auxPointer->app->bound){
+				addedCores = auxPointer->app->bound - auxPointer->app->currentCores_d ;
+				auxPointer->app->currentCores_d = auxPointer->app->bound;
+
+
+			}
+			else{
+				auxPointer->app->currentCores_d = auxPointer->app->currentCores_d + potentialDeltaCores;
+				addedCores=potentialDeltaCores;
+			}
+
+			if (auxPointer->app->currentCores_d == 0)
+			{
+				printf("\nFatal Error: FixInitialSolution: app %s has %d cores after fix\n", auxPointer->app->session_app_id, auxPointer->app->currentCores_d);
+				exit(-1);
+			}
+			if (addedCores > 0)
+			{
+				//auxPointer->app->currentCores_d+= addedCores;
+
+				sprintf(debugMsg,"adding cores to App %s, %d \n", auxPointer->app->session_app_id, addedCores);debugMessage(debugMsg, par);
+
+				sprintf(debugMsg," application_id %s new cores %d moved cores %d\n", auxPointer->app->session_app_id, (int)auxPointer->app->currentCores_d, addedCores);debugMessage(debugMsg, par);
+
+				residualCores = residualCores - addedCores;
+			}
+			auxPointer = auxPointer->next;
+		}
+
+		if (residualCores == 0) loopExit = 1;
+	}
+	readList(applications, par);
+
+	return first_LP;
+}
+
+
+sAux * approximatedLoop(sList *first_i, int *iteration, struct optJrParameters par )
+{
+	char debugMsg[DEBUG_MSG];
+
 	if (first_i == NULL)
 	{
 		printf("Error: approximatedLoop: null pointer\n");
@@ -41,7 +136,7 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 	/* (possibly redundant) */
 	application_i = first_i;
 
-	printf("Approximated iterated loop\n");
+	sprintf(debugMsg, "Approximated iterated loop\n");debugInformational(debugMsg, par);
 		while (application_i != NULL)
 		{
 			application_j = first_i;
@@ -49,26 +144,28 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 			{
 				if (strcmp(application_i->session_app_id, application_j->session_app_id)!= 0)
 				{
-					printf("\n\nComparing %s with %s\n", application_i->session_app_id, application_j->session_app_id);
-					printf("-----------------------------------------------\n");
+					sprintf(debugMsg,"\n\nComparing %s with %s\n", application_i->session_app_id, application_j->session_app_id);debugMessage(debugMsg, par);
+					sprintf(debugMsg, " ");debugBanner(debugMsg, par);
 
 
 					nCoreMov = max(application_i->V, application_j->V);
 
-					DELTAVM_i = nCoreMov/application_i->V;printf("app %s DELTAVM_i %lf\n", application_i->session_app_id, DELTAVM_i);
-					DELTAVM_j = nCoreMov/application_j->V;printf("app %s DELTAVM_j %lf\n", application_j->session_app_id, DELTAVM_j);
+					DELTAVM_i = nCoreMov/application_i->V;
+					sprintf(debugMsg, "app %s DELTAVM_i %lf\n", application_i->session_app_id, DELTAVM_i);debugMessage(debugMsg, par);
+					DELTAVM_j = nCoreMov/application_j->V;
+					sprintf(debugMsg, "app %s DELTAVM_j %lf\n", application_j->session_app_id, DELTAVM_j);debugMessage(debugMsg, par);
 
 					/* Change the currentCores, but rollback later */
-					printf("\n app %s currentCores %d\n", application_i->session_app_id, (int)application_i->currentCores_d);
-					printf("app %s currentCores %d\n", application_j->session_app_id, (int)application_j->currentCores_d);
+					sprintf(debugMsg,"\n app %s currentCores %d\n", application_i->session_app_id, (int)application_i->currentCores_d);debugMessage(debugMsg, par);
+					sprintf(debugMsg,"app %s currentCores %d\n", application_j->session_app_id, (int)application_j->currentCores_d);debugMessage(debugMsg, par);
 
 					int deltaNCores_i=DELTAVM_i*application_i->V;
 					int deltaNCores_j=DELTAVM_j*application_j->V;
 					application_i->currentCores_d = application_i->currentCores_d + deltaNCores_i;
 					application_j->currentCores_d = application_j->currentCores_d - deltaNCores_j;
 
-					printf("\n   After cores exchange: app %s currentCores %d\n", application_i->session_app_id, (int)application_i->currentCores_d);
-					printf("   After cores exchange: app %s currentCores %d\n", application_j->session_app_id, (int)application_j->currentCores_d);
+					sprintf(debugMsg,"\n   After cores exchange: app %s currentCores %d\n", application_i->session_app_id, (int)application_i->currentCores_d);debugMessage(debugMsg, par);
+					sprintf(debugMsg,"   After cores exchange: app %s currentCores %d\n", application_j->session_app_id, (int)application_j->currentCores_d);debugMessage(debugMsg, par);
 
 
 					if (application_i->currentCores_d > 0 && application_j->currentCores_d > 0)
@@ -83,14 +180,14 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 
 						DELTA_fo_App_i = //application_i->alpha/(application_i->currentCores_d)-application_i->alpha/(application_i->currentCores_d - deltaNCores_i);
 
-								ObjFunctionComponentApprox(application_i) - application_i->baseFO;
+								ObjFunctionComponentApprox(application_i, par) - application_i->baseFO;
 
-						printf("\napp %s DELTA_fo_App_i %lf\n", application_i->session_app_id, DELTA_fo_App_i);
+						sprintf(debugMsg,"\napp %s DELTA_fo_App_i %lf\n", application_i->session_app_id, DELTA_fo_App_i);debugMessage(debugMsg, par);
 
 
 						DELTA_fo_App_j = //application_j->alpha/(application_j->currentCores_d)-application_j->alpha/(application_j->currentCores_d + deltaNCores_j);
-								ObjFunctionComponentApprox(application_j) - application_j->baseFO;
-						printf("\n app %s DELTA_fo_App_j %lf\n", application_j->session_app_id, DELTA_fo_App_j);
+								ObjFunctionComponentApprox(application_j, par) - application_j->baseFO;
+						sprintf(debugMsg,"\n app %s DELTA_fo_App_j %lf\n", application_j->session_app_id, DELTA_fo_App_j);debugMessage(debugMsg, par);
 
 						//printf("App %s Delta FO Approx  %lf\n", application_i->app_id, DELTA_fo_App_i);
 						//printf("App %s Delta FO Approx  %lf\n", application_j->app_id, DELTA_fo_App_j);
@@ -138,7 +235,7 @@ sAux * approximatedLoop(sList *first_i, int *iteration )
 
 
 
-char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, int currentCores, char * memory, int datasize,  char *sessionId, char *appId)
+char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, int currentCores, char * memory, int datasize,  char *sessionId, char *appId, struct optJrParameters par)
 {
 	char parameters[1024];
 	char cmd[1024];
@@ -148,6 +245,7 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 	char subfolder[1024];
 	char *output1 = (char *)malloc(64);
 	char statement[1024];
+	char debugMsg[DEBUG_MSG];
 
 	if (output1 == NULL)
 	{
@@ -163,9 +261,11 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 
 	char dir[1024];
 
-printf("invokePredictor\n");
-	/* Consider always the same
+	sprintf(debugMsg, "invokePredictor\n");debugInformational(debugMsg, par);
+
+	/* Consider always the same folder and lua file (replacing the number of nodes)
 	 This is possible because the variance between the log folders is small*/
+
 	strcpy(path, getConfigurationValue(configuration, "FAKE"));
 	strcpy(dir, readFolder(path));
 
@@ -193,7 +293,8 @@ printf("invokePredictor\n");
 											datasize,
 											currentCores);
 
-			MYSQL_ROW row = executeSQL(conn, statement);
+			MYSQL_ROW row = executeSQL(conn, statement, par);
+
 			if (row == NULL)
 			{
 #endif
@@ -202,7 +303,7 @@ printf("invokePredictor\n");
 				strcpy(subfolder, readFolder(path));
 				sprintf(cmd, "%s/%s/", path, subfolder);
 				sprintf(cmd, "%s*.lua", cmd);
-				strcpy(lua, ls(cmd));
+				strcpy(lua, ls(cmd, par));
 
 
 				char pattern[64];
@@ -211,7 +312,7 @@ printf("invokePredictor\n");
 				writeFile(lua, replace(readFile(lua), pattern));
 
 				sprintf(cmd, "cd %s;./dagsim.sh %s > /tmp/outputDagsim.txt", getConfigurationValue(configuration, "DAGSIM_HOME"), lua);
-				_run(cmd);
+				_run(cmd, par);
 
 				strcpy(output1, extractWord(extractRowN(readFile("/tmp/outputDagsim.txt"),1),3));
 
@@ -244,7 +345,7 @@ printf("invokePredictor\n");
 			else
 				{
 					double out = atof(row[0]);
-					printf("Dagsim output retrieved from DB cash: %s %lf\n", appId, out);
+					sprintf(debugMsg,"Dagsim output retrieved from DB cash: %s %lf\n", appId, out);debugMessage(debugMsg, par);
 					sprintf(output1, "%lf", out);
 				}
 #endif
@@ -272,12 +373,12 @@ printf("invokePredictor\n");
  *
  */
 
-void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer)
+void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer, struct optJrParameters par)
 {
 
 
 	double predictorOutput;
-
+	char debugMsg[DEBUG_MSG];
 	double BTime = 0;
 	int BCores = 0;
 	int STEP = pointer->V;
@@ -300,8 +401,8 @@ void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer)
 		nCores = pointer->currentCores_d;
 
 
-		predictorOutput = atoi(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id));
-		printf("Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput, pointer->Deadline_d, nCores);
+		predictorOutput = atoi(invokePredictor(configuration, conn, nNodes, nCores, "*", pointer->datasetSize, pointer->session_app_id, pointer->app_id, par));
+		sprintf(debugMsg,"Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput, pointer->Deadline_d, nCores);debugMessage(debugMsg, par);
 		// Danilo 27/7/2017
 		pointer->sAB.index = 0;
 		pointer->sAB.vec[pointer->sAB.index].nCores = nCores;
@@ -327,8 +428,8 @@ void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer)
 				//printf("(up) time = %d Rnew =%d\n", time, BTime);
 
 				nCores = nCores + STEP;
-				predictorOutput = atof(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id));
-				printf("Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput,pointer->Deadline_d, nCores);
+				predictorOutput = atof(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, par));
+				sprintf(debugMsg,"Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput,pointer->Deadline_d, nCores);debugMessage(debugMsg, par);
 
 				BCores = nCores;
 				BTime = predictorOutput;
@@ -367,8 +468,8 @@ void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer)
 					//leave the while loop
 					break;
 				}
-				predictorOutput = atof(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id));
-				printf("Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput, pointer->Deadline_d, nCores);
+				predictorOutput = atof(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, par));
+				sprintf(debugMsg,"Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput, pointer->Deadline_d, nCores);debugMessage(debugMsg, par);
 
 				pointer->sAB.vec[pointer->sAB.index].nCores = nCores;
 				pointer->sAB.vec[pointer->sAB.index].R = predictorOutput;
@@ -383,7 +484,7 @@ void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer)
 	pointer->currentCores_d = BCores;
 	pointer->R_d = BTime;
 	pointer->bound = BCores;
-	printf("\n\n *** Session_app_id %s APP_ID %s D = %lf R = %lf  bound = %d\n\n", pointer->session_app_id, pointer->session_app_id, pointer->Deadline_d, pointer->R_d, pointer->bound);
+	sprintf(debugMsg,"\n\nSession_app_id %s APP_ID %s D = %lf R = %lf  bound = %d\n\n", pointer->session_app_id, pointer->session_app_id, pointer->Deadline_d, pointer->R_d, pointer->bound);debugMessage(debugMsg, par);
 
 
 }
@@ -406,8 +507,9 @@ float computeBeta(sAlphaBetaManagement sAB)
 	return ((double) sAB.vec[1].nCores) / (sAB.vec[0].nCores - sAB.vec[1].nCores) * (((double) sAB.vec[0].nCores)/sAB.vec[1].nCores * sAB.vec[0].R - sAB.vec[1].R);
 }
 
-double ObjFunctionGlobal(sConfiguration * configuration, MYSQL *conn, sList * pointer)
+double ObjFunctionGlobal(sConfiguration * configuration, MYSQL *conn, sList * pointer, struct optJrParameters par)
 {
+	char debugMsg[DEBUG_MSG];
 	double sum = 0;
 
 	if (pointer == NULL)
@@ -416,7 +518,7 @@ double ObjFunctionGlobal(sConfiguration * configuration, MYSQL *conn, sList * po
 	}
 	while (pointer != NULL)
 	{
-		sum = sum + ObjFunctionComponent(configuration, conn, pointer);
+		sum = sum + ObjFunctionComponent(configuration, conn, pointer, par);
 		pointer = pointer->next;
 	}
 
@@ -443,10 +545,10 @@ double ObjFunctionGlobal(sConfiguration * configuration, MYSQL *conn, sList * po
  *
  */
 
-int ObjFunctionComponent(sConfiguration *configuration, MYSQL *conn, sList * pointer)
+int ObjFunctionComponent(sConfiguration *configuration, MYSQL *conn, sList * pointer, struct optJrParameters par)
 {
 
-
+	char debugMsg[DEBUG_MSG];
 	double output;
 
 	if (pointer == NULL)
@@ -456,18 +558,18 @@ int ObjFunctionComponent(sConfiguration *configuration, MYSQL *conn, sList * poi
 	}
 
 
-	pointer->R_d = atof(invokePredictor( configuration, conn, 1, pointer->currentCores_d, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id));
+	pointer->R_d = atof(invokePredictor( configuration, conn, 1, pointer->currentCores_d, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, par));
 	//printf("ObjFunctionComponent: App_id %s w %f R %d D %d nCores %d newCores %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D, pointer->cores, pointer->newCores);
 
 	/* Determine how the obj function needs to be calculated */
 	switch(pointer->mode)
 	{
 		case R_ALGORITHM:
-				printf("ObjFunctionComponent W %d R_d %lf D %lf\n", pointer->w, pointer->R_d, pointer->Deadline_d);
+				sprintf(debugMsg,"ObjFunctionComponent W %d R_d %lf D %lf\n", pointer->w, pointer->R_d, pointer->Deadline_d);debugMessage(debugMsg, par);
 				if (pointer->R_d > pointer->Deadline_d)
 					output = pointer->w * (pointer->R_d - pointer->Deadline_d);
 				else output = 0;
-				printf("Compute FO for app %s currentCores_d %d  R %lf FO=%lf\n", pointer->session_app_id, (int)pointer->currentCores_d, pointer->R_d, output);
+				sprintf(debugMsg,"Compute FO for app %s currentCores_d %d  R %lf FO=%lf\n", pointer->session_app_id, (int)pointer->currentCores_d, pointer->R_d, output);debugMessage(debugMsg, par);
 			break;
 			/*
 		case CORES_ALGORITHM:
@@ -495,10 +597,10 @@ int ObjFunctionComponent(sConfiguration *configuration, MYSQL *conn, sList * poi
 }
 
 
-int ObjFunctionComponentApprox(sList * pointer)
+int ObjFunctionComponentApprox(sList * pointer, struct optJrParameters par)
 {
 
-
+	char debugMsg[DEBUG_MSG];
 	double output;
 
 	if (pointer == NULL)
@@ -513,11 +615,11 @@ int ObjFunctionComponentApprox(sList * pointer)
 
 	/* Determine how the obj function needs to be calculated */
 
-	printf("W %d R_d %lf D %lf\n", pointer->w, pointer->R_d, pointer->Deadline_d);
+	sprintf(debugMsg,"W %d R_d %lf D %lf\n", pointer->w, pointer->R_d, pointer->Deadline_d);debugMessage(debugMsg, par);
 	if (pointer->R_d > pointer->Deadline_d)
 		output = pointer->w * (pointer->R_d - pointer->Deadline_d);
 	else output = 0;
-		printf("Compute FO for app %s currentCores_d %d  R %lf FO=%lf\n", pointer->session_app_id, (int)pointer->currentCores_d, pointer->R_d, output);
+		sprintf(debugMsg,"Compute FO for app %s currentCores_d %d  R %lf FO=%lf\n", pointer->session_app_id, (int)pointer->currentCores_d, pointer->R_d, output);debugMessage(debugMsg, par);
 
 	return output;
 }
@@ -532,24 +634,25 @@ int ObjFunctionComponentApprox(sList * pointer)
  * 								Secondly, it invokes the Bound function.
  *
  */
-void findBound(sConfiguration *configuration, MYSQL *conn, char *db,  sList *pointer)
+void findBound(sConfiguration *configuration, MYSQL *conn, char *db,  sList *pointer, struct optJrParameters par)
 {
-
+	char debugMsg[DEBUG_MSG];
 	char statement[256];
 
-    printf("\n findBound %s %s\n", pointer->session_app_id, pointer->app_id);
+    sprintf(debugMsg,"\n findBound %s %s\n", pointer->session_app_id, pointer->app_id);debugMessage(debugMsg, par);
 
 	///Retrieve nCores from the DB
     sprintf(statement,
                         "select num_cores_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%lf;"
                         , db, pointer->app_id, pointer->datasetSize, pointer->Deadline_d);
 
-    MYSQL_ROW row = executeSQL(conn, statement);
+    MYSQL_ROW row = executeSQL(conn, statement, par);
 
     pointer->nCores_DB_d = atoi(row[0]);
 
-    Bound(configuration, conn, pointer);
-    printf("Bound for %s has been calculated\n", pointer->session_app_id);
+    Bound(configuration, conn, pointer, par);
+    sprintf(debugMsg,"A bound for %s has been calculated\n", pointer->session_app_id);
+    debugMessage(debugMsg, par);
 
 
 }
@@ -562,12 +665,12 @@ void findBound(sConfiguration *configuration, MYSQL *conn, char *db,  sList *poi
  * 		Description:			Localsearch algorithm as per functional analysis
  *
  */
-void localSearch(sConfiguration * configuration, MYSQL *conn, sList * application_i, int n, int MAX_PROMISING_CONFIGURATIONS)
+void localSearch(sConfiguration * configuration, MYSQL *conn, sList * application_i, int n, int MAX_PROMISING_CONFIGURATIONS, struct optJrParameters par)
 {
 	sList * application_j, *first_i = application_i;
 	sAux *firstAux = NULL, *currentAux = NULL;
 	sAux *sfirstAuxApproximated = NULL;
-
+	char debugMsg[DEBUG_MSG];
 
 	int nCoreMov;
 	int stop = 0;
@@ -606,23 +709,24 @@ double TotalFO;
 int how_many;
 
 
-for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
-	printf("************************************** ITERATION %d **************************************\n", iteration);
+for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++)
+{
+	sprintf(debugMsg, "ITERATION %d \n", iteration);debugBanner(debugMsg, par);
 
 	//sfirstAuxApproximated = approximatedLoop(first_i,  sfirstAuxApproximated);
-	sfirstAuxApproximated = approximatedLoop(first_i, &how_many );
-	if (sfirstAuxApproximated == NULL) printf("Empty Candidates list\n");
+	sfirstAuxApproximated = approximatedLoop(first_i, &how_many, par );
+	if (sfirstAuxApproximated == NULL) sprintf(debugMsg, "Empty Candidates list\n");debugInformational(debugMsg, par);
 
-	printf("\n\n ************************************** Ex-iteration loop ***********************************************************************\n");
+	sprintf(debugMsg, " Ex-iteration loop\n");debugBanner(debugMsg, par);
 
 		// To Do: consider only the first MAX_PROMISING_CONFIGURATIONS of the list
 		while (sfirstAuxApproximated != NULL)
 		{
-			printf(" \n\n*** Browsing auxApproximated list ***\n");
+			sprintf(debugMsg, "Browsing auxApproximated list");debugBanner(debugMsg, par);
 			/* Consider only the first MAX_PROMISING_CONFIGURATIONS list members */
 			if (index > 0 && index == MAX_PROMISING_CONFIGURATIONS)
 			{
-				printf("LocalSearch: MAX_PROMISING_CONFIGURATIONS was reached, leaving sfirstAuxApproximated loop\n");
+				sprintf(debugMsg,"LocalSearch: MAX_PROMISING_CONFIGURATIONS was reached, leaving sfirstAuxApproximated loop\n");debugMessage(debugMsg, par);
 				break;
 			}
 
@@ -633,24 +737,23 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
 
 
 
-			printf("\n\nComparing %s with %s\n", application_i->session_app_id, application_j->session_app_id);
-			printf("-----------------------------------------------\n");
-
+			sprintf(debugMsg, "\n\nComparing %s with %s\n", application_i->session_app_id, application_j->session_app_id);
+			sprintf(debugMsg, " ");debugBanner(debugMsg, par);
 
 			nCoreMov = max(application_i->V, application_j->V);
 
-			DELTAVM_i = nCoreMov/application_i->V;printf("app %s DELTAVM_i %lf\n", application_i->session_app_id, DELTAVM_i);
-			DELTAVM_j = nCoreMov/application_j->V;printf("app %s DELTAVM_j %lf\n", application_j->session_app_id, DELTAVM_j);
+			DELTAVM_i = nCoreMov/application_i->V;sprintf(debugMsg, "app %s DELTAVM_i %lf\n", application_i->session_app_id, DELTAVM_i);debugMessage(debugMsg, par);
+			DELTAVM_j = nCoreMov/application_j->V;sprintf(debugMsg, "app %s DELTAVM_j %lf\n", application_j->session_app_id, DELTAVM_j);debugMessage(debugMsg, par);
 
 			/* Change the currentCores, but rollback later */
-			printf("app %s currentCores %d\n", application_i->session_app_id, (int)application_i->currentCores_d);
-			printf("app %s currentCores %d\n", application_j->session_app_id, (int)application_j->currentCores_d);
+			sprintf(debugMsg,"app %s currentCores %d\n", application_i->session_app_id, (int)application_i->currentCores_d);debugMessage(debugMsg, par);
+			sprintf(debugMsg,"app %s currentCores %d\n", application_j->session_app_id, (int)application_j->currentCores_d);debugMessage(debugMsg, par);
 
 			application_i->currentCores_d = application_i->currentCores_d + DELTAVM_i*application_i->V;
 			application_j->currentCores_d = application_j->currentCores_d - DELTAVM_j*application_j->V;
 
-			printf("After cores exchange: app %s currentCores %d\n", application_i->session_app_id, (int)application_i->currentCores_d);
-			printf("After cores exchange: app %s currentCores %d\n", application_j->session_app_id, (int)application_j->currentCores_d);
+			sprintf(debugMsg,"After cores exchange: app %s currentCores %d\n", application_i->session_app_id, (int)application_i->currentCores_d);debugMessage(debugMsg, par);
+			sprintf(debugMsg,"After cores exchange: app %s currentCores %d\n", application_j->session_app_id, (int)application_j->currentCores_d);debugMessage(debugMsg, par);
 
 			if (application_i->currentCores_d > 0 && application_j->currentCores_d > 0)
 			{
@@ -661,10 +764,10 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
 				* Call object function evaluation
 				*/
 
-				 DELTA_fo_App_i = ObjFunctionComponent(configuration, conn, application_i) - application_i->baseFO; printf("app %s DELTA_fo_App_i %lf\n",
-				                                                application_i->session_app_id, DELTA_fo_App_i);
-				 DELTA_fo_App_j = ObjFunctionComponent(configuration, conn, application_j) - application_j->baseFO;printf("app %s DELTA_fo_App_j %lf\n",
-				                                                application_j->session_app_id, DELTA_fo_App_j);
+				 DELTA_fo_App_i = ObjFunctionComponent(configuration, conn, application_i, par) - application_i->baseFO; sprintf(debugMsg, "app %s DELTA_fo_App_i %lf\n",
+				                                                application_i->session_app_id, DELTA_fo_App_i);debugMessage(debugMsg, par);
+				 DELTA_fo_App_j = ObjFunctionComponent(configuration, conn, application_j, par) - application_j->baseFO;sprintf(debugMsg, "app %s DELTA_fo_App_j %lf\n",
+				                                                application_j->session_app_id, DELTA_fo_App_j);debugMessage(debugMsg, par);
 
 
 
@@ -693,7 +796,7 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
 
 		}
 
-	readAuxList(firstAux);
+	readAuxList(firstAux, par);
 
 	// TODO DANILO retrieve from the auxiliary list the element with the smallest delta_fo -> DONE
 	// TODO: consider only the first n elements of the list (sorted by total FO given by (app_i+app_j)) ->DONE
@@ -701,30 +804,36 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
 	//if (minAux == NULL)
 	minAux = firstAux; // The list is now sorted, so the smallest element is the first;
 
-	if (firstAux ==NULL)
-	{
-		printf("Auxiliary list empty.\n");
-		if (sfirstAuxApproximated) freeAuxList(sfirstAuxApproximated);
-		currentAux = NULL;
-		stop = 1;
-	}
 
-	printf("****************************************************\n");
+
+	sprintf(debugMsg, " ");debugBanner(debugMsg, par);
 #ifdef GLOBAL_PRINT
 
 		TotalFO = ObjFunctionGlobal(configuration, conn, first_i);
-		printf("\n\nGlobal obj function %lf\n", TotalFO);
+		sprintf(debugMsg,"\n\nGlobal obj function %lf\n", TotalFO);debugMessage(debugMsg, par);
 		/* Update Statistics */
 		addStatistics(&firstS, &currentS, iteration, how_many, TotalFO);
 #endif
 
+
 	index++;
-	// TODO DANILO assign number of cores to the applications -> DONE
-	commitAssignment(first_i, minAux->app1->session_app_id, minAux->delta_i); // application i
-	commitAssignment(first_i, minAux->app2->session_app_id, -minAux->delta_j); // application j
 
+	if (firstAux ==NULL)
+	{
+		sprintf(debugMsg, "Information: LocalSearch Auxiliary list empty.\n");debugInformational(debugMsg, par);
+		//if (sfirstAuxApproximated) freeAuxList(sfirstAuxApproximated);
+		currentAux = NULL;
+		stop = 1;
+		readSolution(first_i);
+	}
+	else
+	{
+		// TODO DANILO assign number of cores to the applications -> DONE
+		commitAssignment(first_i, minAux->app1->session_app_id, minAux->delta_i, par); // application i
+		commitAssignment(first_i, minAux->app2->session_app_id, -minAux->delta_j, par); // application j
+	}
 
-	printf("Destroy Aux list\n");
+	sprintf(debugMsg, "Information: LocalSearch: Destroy Aux list\n");debugInformational(debugMsg, par);
 
 	// DESTROY Auxiliary lists and prepare it for a new run
 
@@ -737,7 +846,7 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++){
 	if (stop) break;
 
 	// TODO Modify to recalculate only FO for apps i,j (use the above copies without invoke dagSim)
-	initialize(configuration, conn, first_i);
+	initialize(configuration, conn, first_i, par);
 
 }
 
@@ -757,15 +866,17 @@ if (firstS) freeStatisticsList(firstS);
  */
 
 
-void initialize(sConfiguration * configuration, MYSQL *conn, sList * application_i)
+void initialize(sConfiguration * configuration, MYSQL *conn, sList * application_i, struct optJrParameters par)
 {
-	printf("INITIALIZE baseFo for all the applications\n");
+	char debugMsg[DEBUG_MSG];
+
+	sprintf(debugMsg, "Information: INITIALIZE baseFo for all the applications\n");debugInformational(debugMsg, par);
 	while (application_i != NULL)
 	{
 
 			application_i->mode = R_ALGORITHM;
-			application_i->baseFO = ObjFunctionComponent(configuration, conn, application_i);
-			printf("\n\n INITIALIZE BASE FO for APP %s baseFO =%lf\n\n", application_i->session_app_id, application_i->baseFO);
+			application_i->baseFO = ObjFunctionComponent(configuration, conn, application_i, par);
+			sprintf(debugMsg,"\n\n INITIALIZE BASE FO for APP %s baseFO =%lf\n\n", application_i->session_app_id, application_i->baseFO);debugMessage(debugMsg, par);
 			application_i = application_i->next;
 	}
 }
@@ -784,22 +895,22 @@ void initialize(sConfiguration * configuration, MYSQL *conn, sList * application
  * 								- it calculates the bound for each application
  *
  */
-void calculate_Nu(sConfiguration * configuration, MYSQL *conn, char * uniqueFilename, sList *first, int N)
+void calculate_Nu(sConfiguration * configuration, MYSQL *conn, sList *first, struct optJrParameters par)
 {
-
+	char debugMsg[DEBUG_MSG];
 	sList * current = first;
 	int rows = 0;
 	char * app_id;
 	int w1;
 	double chi_c_1;
 	double csi_1;
-
+	int N = par.number;
 	double csi;
 
 	int minCapacity= 0;
 
 
-	printf("\n------------------- CALCULATE_NU ------------------- \n");
+	sprintf(debugMsg, "CALCULATE_NU");debugBanner(debugMsg, par);
 
 	//TO DO sum di V_i -> DONE
 	while (current != NULL)
@@ -857,7 +968,7 @@ void calculate_Nu(sConfiguration * configuration, MYSQL *conn, char * uniqueFile
 
 	while (current != NULL)
 	{
-		findBound(configuration, conn, getConfigurationValue(configuration, "OptDB_dbName"), current);
+		findBound(configuration, conn, getConfigurationValue(configuration, "OptDB_dbName"), current, par);
 		if (rows > 0)
 		{
 			csi = getCsi(current->M/current->m, current->V/current->v);
@@ -891,12 +1002,12 @@ void calculate_Nu(sConfiguration * configuration, MYSQL *conn, char * uniqueFile
 
 	        //current->currentCores_d = current->bound_d;
 
-	        printRow(first);
+	        printRow(first, par);
 
 	        first = first->next;
 	        rows++;
 	   }
-	    printf("------------------- END ------------------- \n");
+	    sprintf(debugMsg,"end calculate nu");debugBanner(debugMsg, par);
 }
 
 

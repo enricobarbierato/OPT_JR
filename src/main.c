@@ -24,101 +24,7 @@
 
 
 
-sListPointers * fixInitialSolution(sList *applications, int N)
-{
-	sList * first;
-	int allocatedCores;
-	sListPointers * first_LP = NULL;
-	int loopExit = 0;
-	sListPointers *auxPointer;
-	int residualCores;
 
-
-	allocatedCores = 0; // TODO To be changed into INT ->DONE
-
-	first = applications;
-
-	while (first != NULL)
-	{
-		//int currentcores1 =first->currentCores_d;
-		//double currentcores2=max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
-
-
-		first->currentCores_d = max(((int)(first->currentCores_d / first->V)) * first->V,first->V);
-		if (first->currentCores_d > first->bound)
-			first->currentCores_d = first->bound;
-		else
-			{
-				printf("adding %s to ListPointers\n", first->session_app_id);
-				addListPointers(&first_LP, first);
-			}
-
-		// Danilo Application (suffering) insert in the new list
-		// TODO Handle insert in such a way the list is sorted by weight -> DONE
-
-		allocatedCores+= first->currentCores_d;
-		printf("***fixInitialSolution FIXING CORES*** %s %d\n", first->session_app_id, first->currentCores_d);
-		first = first->next;
-	}
-	//readListPointers(first_LP);
-
-	printf("fixInitialSolution: allocatedCores %d\n", allocatedCores);
-
-	auxPointer = first_LP;
-
-
-
-	residualCores = N - allocatedCores;
-	int addedCores;
-
-
-	while (!loopExit&& (residualCores>0))
-	{
-
-		if (auxPointer == NULL) loopExit = 1;
-		else
-		{
-			// cores assignment
-
-			int potentialDeltaCores=((int)(residualCores / auxPointer->app->V) )* auxPointer->app->V;
-
-			//addedCores = MIN(, auxPointer->app->bound_d);
-
-			if ((auxPointer->app->currentCores_d + potentialDeltaCores) > auxPointer->app->bound){
-				addedCores = auxPointer->app->bound - auxPointer->app->currentCores_d ;
-				auxPointer->app->currentCores_d = auxPointer->app->bound;
-
-
-			}
-			else{
-				auxPointer->app->currentCores_d = auxPointer->app->currentCores_d + potentialDeltaCores;
-				addedCores=potentialDeltaCores;
-			}
-
-			if (auxPointer->app->currentCores_d == 0)
-			{
-				printf("\nFatal Error: FixInitialSolution: app %s has %d cores after fix\n", auxPointer->app->session_app_id, auxPointer->app->currentCores_d);
-				exit(-1);
-			}
-			if (addedCores > 0)
-			{
-				//auxPointer->app->currentCores_d+= addedCores;
-
-				printf("adding cores to App %s, %d \n", auxPointer->app->session_app_id, addedCores);
-
-				printf(" applicationid %s new cores %d moved cores %d\n", auxPointer->app->session_app_id, (int)auxPointer->app->currentCores_d, addedCores);
-
-				residualCores = residualCores - addedCores;
-			}
-			auxPointer = auxPointer->next;
-		}
-
-		if (residualCores == 0) loopExit = 1;
-	}
-	readList(applications);
-
-	return first_LP;
-}
 
 int main(int argc, char **argv)
 {
@@ -138,6 +44,10 @@ int main(int argc, char **argv)
     int DatasetSize;
     double N;
     char line[1024];
+    struct optJrParameters par;
+    char debugMsg[DEBUG_MSG];
+
+    par = parseCommandLine(argv, argc);
 
     int rows = 1;
 
@@ -151,11 +61,7 @@ int main(int argc, char **argv)
     				tv_initial_locals,
     				tv_final_locals,
     				tv_final_main;
-    /*
-     * Check Usage
-     */
 
-    if (argc < 4) Usage();
 
     sConfiguration *configuration = readConfigurationFile();
 
@@ -178,13 +84,13 @@ int main(int argc, char **argv)
      */
     char *folder = getConfigurationValue(configuration, "UPLOAD_HOME");
     char *filename = strcat(folder, "/");
-    filename = strcat(folder, argv[1]);
+    filename = strcat(folder, par.filename);
 
     /*
      * Read total cores available
      */
-    N = atof(argv[2]);
-    int MAX_PROMISING_CONFIGURATIONS = atoi(argv[3]);
+    N = par.number;
+    int MAX_PROMISING_CONFIGURATIONS = par.K;
 
 
 
@@ -262,7 +168,7 @@ int main(int argc, char **argv)
      * -	Store each value in a db table
      * -	Find the bounds
      */
-    calculate_Nu(configuration, conn, argv[1], first, N);
+    calculate_Nu(configuration, conn, first,  par);
 /*
     while (first!=NULL)
     {
@@ -275,21 +181,21 @@ int main(int argc, char **argv)
 
     gettimeofday(&tv_initial_init, NULL);
     /* Calculate baseFO for erach application */
-    initialize(configuration, conn, first);
+    initialize(configuration, conn, first, par);
     gettimeofday(&tv_final_init, NULL);
 
     gettimeofday(&tv_initial_fix, NULL);
 
-    sListPointers *firstPointer = fixInitialSolution(first, N);
+    sListPointers *firstPointer = fixInitialSolution(first, par);
     gettimeofday(&tv_final_fix, NULL);
 
     /* Invoke localSearch */
     gettimeofday(&tv_initial_locals, NULL);
-    localSearch(configuration, conn, first, N, MAX_PROMISING_CONFIGURATIONS);
+    localSearch(configuration, conn, first, N, MAX_PROMISING_CONFIGURATIONS, par);
     gettimeofday(&tv_final_locals, NULL);
 
-    printf("Final solution\n");
-    readList(first);
+    debugInformational("Final solution\n", par);
+    readList(first, par);
 
     /* De-allocate resources and close connection */
     fclose(stream);
@@ -302,11 +208,11 @@ int main(int argc, char **argv)
     gettimeofday(&tv_final_main, NULL);
 
     //printOutput(first);
-    printf("FixInitial step elapsed time: %lf\n", elapsedTime(tv_initial_fix, tv_final_fix));
-    printf("Findbounds (including Nu computation) elapsed time: %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
-    printf("Initialization elapsed time %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));
-    printf("LocalSearch step elapsed time: %lf\n", elapsedTime(tv_initial_locals, tv_final_locals));
-    printf("Overall elapsed time: %lf\n", elapsedTime(tv_initial_main, tv_final_main));
+    sprintf(debugMsg, "FixInitial step elapsed time: %lf\n", elapsedTime(tv_initial_fix, tv_final_fix));debugMessage(debugMsg, par);
+    sprintf(debugMsg, "Findbounds (including Nu computation) elapsed time: %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));debugMessage(debugMsg, par);
+    sprintf(debugMsg, "Initialization elapsed time %lf\n", elapsedTime(tv_initial_nu, tv_final_nu));debugMessage(debugMsg, par);
+    sprintf(debugMsg, "LocalSearch step elapsed time: %lf\n", elapsedTime(tv_initial_locals, tv_final_locals));debugMessage(debugMsg, par);
+    sprintf(debugMsg, "Overall elapsed time: %lf\n", elapsedTime(tv_initial_main, tv_final_main));debugMessage(debugMsg, par);
 
 
 
