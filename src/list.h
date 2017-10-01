@@ -17,8 +17,9 @@ struct optJrParameters
 	int cache;
 	int globalFOcalculation;
 	int K;
-	char simulator[1024];
+	int simulator;
 	int number;
+	int maxIterations;
 };
 
 
@@ -51,7 +52,7 @@ struct List
 	/* Way to invoke the algorithm */
 	int mode; /* How the objective function is calculated */
 
-	/* CSV file parameters related to the single application */
+	/* profile parameters related to the single application */
 	char * session_app_id;
 	char * app_id;
     int w;					/* Weight application  */
@@ -62,17 +63,17 @@ struct List
     double M;
     double V;
     double v;
-    double Deadline_d;					/* Deadline */
+    double Deadline_d;
     double csi;
     char * stage;
     int datasetSize;
 
     /* Calculated values */
 
-    double nu_d;					/* nu value */
+    double nu_d;				/* nu value */
     int  currentCores_d;		/* Initialized to nu_i */
     int  nCores_DB_d;			/* Initialized to the value from look-up table */
-    int bound;				/* Bound (number of cores) */
+    int bound;					/* Bound (number of cores) */
     double R_d;					/* Value of R as per the predictor */
     double R_bound_d;			/* Bound (R) */
     double baseFO;				/* base FO value (used to calculate the delta) */
@@ -82,6 +83,8 @@ struct List
     sAlphaBetaManagement sAB;
 
     int boundIterations;		/* Metrics */
+
+    int vm;						/* Read from OPTIMIZER_CONFIGURATION_TABLE */
 
 	struct List *next;
 };

@@ -48,9 +48,9 @@ void printOPT_JRPars(struct optJrParameters par )
 
 	printf("DEBUG option: %d\n", par.debug);
 
-	printf("Cache option: %d\n", par.cache);
 
-	printf("Simulator: %s\n", par.simulator);
+
+	printf("Simulator: %d\n", par.simulator);
 
 	printf("Global FO calculation: %d\n", par.globalFOcalculation);
 
@@ -219,14 +219,17 @@ void Usage()
 {
 
     	printf("Usage:\n");
-    	printf("./optimize -f <filename.csv> -n <N> -k <Limit> -d <dY/y|N/n> -c <Y/y|N/n> -s <dagSim|lundstrom>\n");
+    	printf("./optimize -f <filename.csv> -n <N> -k <Limit> -d <dY/y|N/n> -c <Y/y|N/n> -s <dagSim|lundstrom> -i <iterations>\n");
     	printf("where:\n");
     	printf("<filename.csv> is the csv file (including the input values) under $UPLOAD_HOME in wsi_config.xml;\n");
     	printf("<N> is the total number of cores;\n");
     	printf("<Limit> is the maximum number of considered candidates (if equal to 0, all the candidates are considered).\n");
-    	printf("-d and -c represent respectively debug and cache modality on/off"),
+    	printf("-d represents debug (on/off)");
+    	printf("-i represents the maximum number of iterations");
     	printf("Example:\n");
-    	printf("./OPT_JR -f=\"Test3.csv\" -n=220 -k=0 -d=Y -c=Y -s=dagSim -g=Y\n");
+    	printf("./OPT_JR -f=\"Test3.csv\" -n=220 -k=0 -d=Y -s=dagSim -i=10");
+    	printf("/n OPT_JR is executed on a file Test3.csv, the total number of cores is 220, all the candidates are considered, the predictor used is dagSim, "
+    			"the maximum number of iterations is 10\n");
     	exit(-1);
     }
 
@@ -742,163 +745,110 @@ char * ls(char * pattern, struct optJrParameters par)
 }
 
 
+char * extractRowMatchingPattern(char *text, char *pattern)
+{
 
+	char * line = (char *)malloc(1024);
+
+	if (line == NULL)
+	{
+		printf("Malloc failure: extractRowMatchingPattern\n");
+		exit(-1);
+	}
+
+	line = strstr(text, pattern);printf("test %s", text);
+	if (line == NULL)
+	{
+		printf("Fatal error: extractRowMatchingPattern: pattern %s was not found in predictor output file\n", pattern);
+		exit(-1);
+	}
+	line = line + strlen(pattern) + 1;
+
+	return line;
+}
 
 
 char * extractRowN(char *text, int row)
-
 {
-
 	int len = strlen(text);
-
 	int iText, iLine = 0;
-
 	char * line = (char *)malloc(BIG_LINE);
 
 	if (line == NULL)
-
 	{
-
 		printf("Malloc failure: edxtractRowN\n");
-
 		exit(-1);
-
 	}
 
 	int countRow = 0;
-
-
-
-
 
 	iText = 0;
 
 	strcpy(line, "");
 
-
-
 	while ( countRow < row && iText < len)
-
 	{
-
 		iLine = 0;
-
 		while(text[iText] != '\n' &&
-
 				iText < strlen(text))
-
 		{
-
-
-
 			line[iLine++] = text[iText++];
-
 		}
-
 		countRow++;
-
 		iText++;
-
 	}
-
-
 
 	if (row > countRow) return "stop";
-
 	line[iLine] = '\0';
 
-
-
 	if (line == NULL)
-
 	{
-
 		printf("Fatal error: extractRowN: returned string cannot be NULL\n");
-
 		exit(-1);
-
 	}
-
 	return line;
-
-
-
 }
 
 
 
 char * extractWord(char * line, int pos)
-
 {
 
-char *word = (char *)malloc(64);
+	char *word = (char *)malloc(64);
 
-if (word == NULL)
-
-{
-
-	printf("Malloc failure: extractWord\n");
-
-	exit(-1);
-
-}
-
-
-
-int lineIndex = 0;
-
-int wordIndex = 0;
-
-int len = strlen(line);
-
-int countwords = 0;
-
-
-
-while (lineIndex <= len)
-
-{
-
-	if (line[lineIndex] != '\t') word[wordIndex++] = line[lineIndex++];
-
-	else
-
+	if (word == NULL)
 	{
-
-		countwords++;
-
-		if (countwords == pos)
-
-		{
-
-			word[wordIndex] = '\0';
-
-			break;
-
-		}
-
-		wordIndex = 0;
-
-		lineIndex++;
-
+		printf("Malloc failure: extractWord\n");
+		exit(-1);
 	}
 
+	int lineIndex = 0;
+	int wordIndex = 0;
+	int len = strlen(line);
+	int countwords = 0;
 
+	while (lineIndex <= len)
+	{
+		if (line[lineIndex] != '\t') word[wordIndex++] = line[lineIndex++];
+		else
+		{
+			countwords++;
+			if (countwords == pos)
+			{
+				word[wordIndex] = '\0';
+				break;
+			}
+			wordIndex = 0;
+			lineIndex++;
+		}
+	}
 
-}
-
-if (word == NULL)
-
-{
-
-	printf("Fatal error: extracWord: returned string is NULL\n");
-
-	exit(-1);
-
-}
-
-return word;
-
+	if (word == NULL)
+	{
+		printf("Fatal error: extracWord: returned string is NULL\n");
+		exit(-1);
+	}
+	return word;
 }
 
 
@@ -1006,11 +956,16 @@ struct optJrParameters parseCommandLine(char **args, int argc)
 
 					else if (strstr(args[i], DEBUG)) par.debug = atoi(parseArg(args[i], DEBUG, YES_NO));
 
-						else if (strstr(args[i], CACHE)) par.cache = atoi(parseArg(args[i], CACHE, YES_NO));
 
-							else if (strstr(args[i], SIMULATOR)) strcpy(par.simulator,parseArg(args[i], SIMULATOR, STRING));
+							else if (strstr(args[i], SIMULATOR))
+							{
+									if (strcmp(parseArg(args[i], FILENAME, STRING), "dagSim") == 0) par.simulator = DAGSIM;
+															else par.simulator = LUNDSTROM;
+							}
 
 								else if (strstr(args[i], GLOBAL_FO_CALCULATION)) par.globalFOcalculation = atoi(parseArg(args[i], GLOBAL_FO_CALCULATION, YES_NO));
+								else if (strstr(args[i], MAX_ITERATIONS))
+									par.maxIterations = atoi(parseArg(args[i], MAX_ITERATIONS, NUMBER));
 
 
 	return par;

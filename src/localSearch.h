@@ -19,8 +19,6 @@
 #define NO 0
 #define YES 1
 
-#define LUNDSTROM 0
-#define DAGSIM 1
 
 
 

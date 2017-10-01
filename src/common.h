@@ -13,6 +13,9 @@
 #define PRODUCT 2
 #define COUPLE 1
 
+#define WHOLE_DAGSIM 0
+#define RESIDUAL_DAGSIM 1
+
 #define FIRST_APP 0
 #define OTHER_APPS 1
 
@@ -20,16 +23,16 @@
 #include "db.h"
 #include "list.h"
 
-#define ARGS 8
+#define DAGSIM 0
+#define LUNDSTROM 1
 
-#define MAX_ITERATIONS 10
-#define PREDICTOR DAGSIM
+#define ARGS 8 // Command line
 
 #define FILENAME "-f="
 #define NUM_N "-n="
 #define LIST_LIMIT "-k="
 #define DEBUG "-d="
-#define CACHE "-c="
+#define MAX_ITERATIONS "-i="
 #define SIMULATOR "-s="
 #define GLOBAL_FO_CALCULATION "-g"
 
@@ -62,7 +65,7 @@ sAux * approximatedLoop(sList *, int *, struct optJrParameters );
 void addAuxParameters(sAux ** , sAux ** ,  sList * , sList * , int , int , double, double, double);
 
 struct Best bestMatch(char *, int);
-void  Bound(sConfiguration *, MYSQL *conn, sList *, struct optJrParameters);
+void  Bound(sConfiguration *, MYSQL *conn, sList *, struct optJrParameters, int);
 
 void  calculate_Nu(sConfiguration *, MYSQL *, sList *,  struct optJrParameters);
 float computeBeta(sAlphaBetaManagement );
@@ -84,6 +87,7 @@ double elapsedTime(struct timeval , struct timeval );
 char * extractWord(char * , int );
 char * extractItem(const char *const string, const char *const left, const char *const right);
 char * extractRowN(char *, int );
+char * extractRowMatchingPattern(char *text, char *pattern);
 
 sListPointers * fixInitialSolution(sList *applications,  struct optJrParameters);
 void findBound(sConfiguration *, MYSQL *conn, char *,  sList *, struct optJrParameters);
@@ -99,8 +103,8 @@ char * getfield(char* , int);
 char *getConfigurationValue(sConfiguration *pointer, char * variable);
 double getCsi(double , double );
 
-char* invokeLundstrom(int , int , char * , int ,  char *);
-void  initialize(sConfiguration *, MYSQL *conn, sList *, struct optJrParameters);
+void initialize(sConfiguration * configuration, MYSQL *conn, sList * application_i, struct optJrParameters par);
+char* invokePredictor(sConfiguration * , MYSQL *, int , int , char * , int ,  char *, char *, char *, struct optJrParameters, int);
 
 void localSearch(sConfiguration *, MYSQL *conn, sList *, int, int, struct optJrParameters);
 char * ls(char *, struct optJrParameters);
@@ -124,6 +128,7 @@ void printOPT_JRPars(struct optJrParameters par );
 
 sConfiguration * readConfigurationFile();
 void readStatistics(sStatistics *, struct optJrParameters);
+void writeList(MYSQL *conn, char *,sList *, struct optJrParameters);
 void readList(sList *, struct optJrParameters);
 void readAuxList(sAux *, struct optJrParameters);
 void readListPointers(sListPointers *, struct optJrParameters);

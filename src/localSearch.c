@@ -10,7 +10,7 @@
 #include "localSearch.h"
 #include "db.h"
 
-#define CACHE YES
+
 #define GLOBAL_PRINT YES
 
 
@@ -229,37 +229,26 @@ sAux * approximatedLoop(sList *first_i, int *iteration, struct optJrParameters p
 
 
 
-
-
-
-
-
-
-char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, int currentCores, char * memory, int datasize,  char *sessionId, char *appId, struct optJrParameters par)
+char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, int currentCores, char * memory, int datasize,  char *sessionId, char *appId, char *stage, struct optJrParameters par, int flagDagsim)
 {
 	char parameters[1024];
 	char cmd[1024];
-	//char mvCmd[1024];
 	char path[1024];
 	char lua[1024];
 	char subfolder[1024];
 	char *output1 = (char *)malloc(64);
 	char statement[1024];
 	char debugMsg[DEBUG_MSG];
+	char dbName[64];
+	char dir[1024];
 
 	if (output1 == NULL)
 	{
 		printf("Malloc failure: invokePredictor: output1\n");
 		exit(-1);
 	}
-	//char *output2 = (char *)malloc(64);
 
 
-	/*
-	 * Prepare the data
-	 */
-
-	char dir[1024];
 
 	sprintf(debugMsg, "invokePredictor\n");debugInformational(debugMsg, par);
 
@@ -273,7 +262,7 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 
 	//_run(mvCmd);
 
-	switch(PREDICTOR)
+	switch(par.simulator)
 	{
 		case LUNDSTROM:
 			sprintf(parameters, "%d %d %s %d %s", nNodes, currentCores, memory, datasize, appId);
@@ -282,22 +271,42 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 		case DAGSIM:
 
 			/* Check if there is an output from dagSim already cached in the DB */
-#ifdef CACHE
 
-			sprintf(statement, "select value from %s.PREDICTOR_CACHE_TABLE where session_application_id = '%s' and "
+
+			/*sprintf(statement, "select value from %s.PREDICTOR_CACHE_TABLE where session_application_id = '%s' and "
 											"application_id=\'%s\' and "
 											"dataset_size=%d and phi_mem=\'8G\' and num_cores_opt = %d;",
 											getConfigurationValue(configuration,"OptDB_dbName"),
 											sessionId,
 											appId,
 											datasize,
-											currentCores);
+											currentCores);*/
+
+
+			strcpy(dbName, getConfigurationValue(configuration,"OptDB_dbName"));
+			sprintf(statement, "select %s.PREDICTOR_CACHE_TABLE.val \nfrom %s.PREDICTOR_CACHE_TABLE,"
+					"%s.APPLICATION_PROFILE_TABLE \nwhere %s.PREDICTOR_CACHE_TABLE.is_residual = %d and "
+							"%s.PREDICTOR_CACHE_TABLE.dataset_size = "
+					"%s.APPLICATION_PROFILE_TABLE.dataset_size and\n 	"
+					"%s.PREDICTOR_CACHE_TABLE.application_id=\'%s\' and %s.PREDICTOR_CACHE_TABLE.dataset_size=%d  "
+					"and %s.PREDICTOR_CACHE_TABLE.num_cores = %d;\n",
+					dbName,
+					dbName,
+					dbName,
+					dbName,
+					flagDagsim,
+					dbName,
+					dbName,
+					dbName,appId, dbName,datasize, dbName,currentCores);
+
 
 			MYSQL_ROW row = executeSQL(conn, statement, par);
 
 			if (row == NULL)
 			{
-#endif
+				sprintf(debugMsg, "Last SQL statement returned 0 rows. Invoking predictor...\n");
+				debugMessage(debugMsg, par);
+
 				sprintf(path, "%s/%s/logs", getConfigurationValue(configuration, "FAKE"), appId);
 
 				strcpy(subfolder, readFolder(path));
@@ -311,10 +320,29 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 				sprintf(pattern, "Nodes = %d",(nNodes*currentCores));
 				writeFile(lua, replace(readFile(lua), pattern));
 
-				sprintf(cmd, "cd %s;./dagsim.sh %s > /tmp/outputDagsim.txt", getConfigurationValue(configuration, "DAGSIM_HOME"), lua);
-				_run(cmd, par);
+				double systemTime;
+				double stageTime;
 
-				strcpy(output1, extractWord(extractRowN(readFile("/tmp/outputDagsim.txt"),1),3));
+				sprintf(cmd, "cd %s;./dagsim.sh %s -s > /tmp/outputDagsim.txt", getConfigurationValue(configuration, "DAGSIM_HOME"), lua);
+				sprintf(debugMsg, "Executing predictor: %s\n", cmd);debugMessage(debugMsg, par);
+				_run(cmd, par);
+				switch(flagDagsim)
+				{
+					case RESIDUAL_DAGSIM:
+						systemTime = atof(extractWord(extractRowN(readFile("/tmp/outputDagsim.txt"),3), 3));
+						stageTime = atof(extractWord(extractRowN(extractRowMatchingPattern(readFile("/tmp/outputDagsim.txt"), stage),1), 4));
+						sprintf(output1, "%lf", (systemTime - stageTime));
+						sprintf(debugMsg, "Residual time: %s\n", output1);debugMessage(debugMsg, par);
+						break;
+					case WHOLE_DAGSIM:
+						strcpy(output1, extractWord(extractRowN(readFile("/tmp/outputDagsim.txt"),1),3));
+						break;
+					default:
+						printf("FATAL ERROR: invokePredictor: unknown case %d\n", flagDagsim);
+						exit(-1);
+						break;
+				}
+
 
 				if (doubleCompare(atof(output1), 0) == 0)
 				{
@@ -322,17 +350,19 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 					exit(-1);
 				}
 
-#ifdef CACHE
+
 				/* Update the db cash table with a new value */
 				char statement[1024];
-				sprintf(statement,"insert %s.PREDICTOR_CACHE_TABLE values('%s', %d, '%s', %lf, %d, '%s');",
+
+				sprintf(statement,"insert %s.PREDICTOR_CACHE_TABLE values('%s', %d, %d, '%s', %d, %lf);",
 												getConfigurationValue(configuration, "OptDB_dbName"),
 												appId,
 												datasize,
-												"8G",
-												atof(output1),
 												nNodes*currentCores,
-												sessionId);
+												stage,
+												flagDagsim,
+												atof(output1)
+												);
 
 				if (mysql_query(conn, statement))
 				{
@@ -348,7 +378,7 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 					sprintf(debugMsg,"Dagsim output retrieved from DB cash: %s %lf\n", appId, out);debugMessage(debugMsg, par);
 					sprintf(output1, "%lf", out);
 				}
-#endif
+
 		}
 
 
@@ -373,7 +403,7 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
  *
  */
 
-void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer, struct optJrParameters par)
+void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer, struct optJrParameters par, int flagDagsim)
 {
 
 
@@ -401,7 +431,8 @@ void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer, struct 
 		nCores = pointer->currentCores_d;
 
 
-		predictorOutput = atoi(invokePredictor(configuration, conn, nNodes, nCores, "*", pointer->datasetSize, pointer->session_app_id, pointer->app_id, par));
+		predictorOutput = atoi(invokePredictor(configuration, conn, nNodes, nCores, "*", pointer->datasetSize, pointer->session_app_id,
+							pointer->app_id, pointer->stage, par, flagDagsim));
 		sprintf(debugMsg,"Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput, pointer->Deadline_d, nCores);debugMessage(debugMsg, par);
 		// Danilo 27/7/2017
 		pointer->sAB.index = 0;
@@ -428,7 +459,7 @@ void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer, struct 
 				//printf("(up) time = %d Rnew =%d\n", time, BTime);
 
 				nCores = nCores + STEP;
-				predictorOutput = atof(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, par));
+				predictorOutput = atof(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, pointer->stage,par, WHOLE_DAGSIM));
 				sprintf(debugMsg,"Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput,pointer->Deadline_d, nCores);debugMessage(debugMsg, par);
 
 				BCores = nCores;
@@ -468,7 +499,7 @@ void  Bound(sConfiguration *configuration, MYSQL *conn, sList * pointer, struct 
 					//leave the while loop
 					break;
 				}
-				predictorOutput = atof(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, par));
+				predictorOutput = atof(invokePredictor(configuration, conn, nNodes, nCores, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, pointer->stage, par, WHOLE_DAGSIM));
 				sprintf(debugMsg,"Bound evaluation for %s predictorOutput = %lf (deadline is %lf) cores %d\n",  pointer->session_app_id, predictorOutput, pointer->Deadline_d, nCores);debugMessage(debugMsg, par);
 
 				pointer->sAB.vec[pointer->sAB.index].nCores = nCores;
@@ -558,7 +589,7 @@ int ObjFunctionComponent(sConfiguration *configuration, MYSQL *conn, sList * poi
 	}
 
 
-	pointer->R_d = atof(invokePredictor( configuration, conn, 1, pointer->currentCores_d, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, par));
+	pointer->R_d = atof(invokePredictor( configuration, conn, 1, pointer->currentCores_d, "8G", pointer->datasetSize, pointer->session_app_id, pointer->app_id, pointer->stage, par, RESIDUAL_DAGSIM));
 	//printf("ObjFunctionComponent: App_id %s w %f R %d D %d nCores %d newCores %d\n",pointer->app_id, pointer->w, pointer->R, pointer->D, pointer->cores, pointer->newCores);
 
 	/* Determine how the obj function needs to be calculated */
@@ -643,14 +674,15 @@ void findBound(sConfiguration *configuration, MYSQL *conn, char *db,  sList *poi
 
 	///Retrieve nCores from the DB
     sprintf(statement,
-                        "select num_cores_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%lf;"
+                        "select num_cores_opt, num_vm_opt from %s.OPTIMIZER_CONFIGURATION_TABLE where application_id='%s' and dataset_size=%d and deadline=%lf;"
                         , db, pointer->app_id, pointer->datasetSize, pointer->Deadline_d);
 
     MYSQL_ROW row = executeSQL(conn, statement, par);
 
     pointer->nCores_DB_d = atoi(row[0]);
+    pointer->vm = atoi(row[1]);
 
-    Bound(configuration, conn, pointer, par);
+    Bound(configuration, conn, pointer, par, WHOLE_DAGSIM);
     sprintf(debugMsg,"A bound for %s has been calculated\n", pointer->session_app_id);
     debugMessage(debugMsg, par);
 
@@ -709,7 +741,7 @@ double TotalFO;
 int how_many;
 
 
-for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++)
+for (int iteration = 1; iteration <= par.maxIterations; iteration++)
 {
 	sprintf(debugMsg, "ITERATION %d \n", iteration);debugBanner(debugMsg, par);
 
@@ -809,7 +841,7 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++)
 	sprintf(debugMsg, " ");debugBanner(debugMsg, par);
 #ifdef GLOBAL_PRINT
 
-		TotalFO = ObjFunctionGlobal(configuration, conn, first_i);
+		TotalFO = ObjFunctionGlobal(configuration, conn, first_i, par);
 		sprintf(debugMsg,"\n\nGlobal obj function %lf\n", TotalFO);debugMessage(debugMsg, par);
 		/* Update Statistics */
 		addStatistics(&firstS, &currentS, iteration, how_many, TotalFO);
@@ -851,7 +883,7 @@ for (int iteration = 1; iteration <= MAX_ITERATIONS; iteration++)
 }
 
 #ifdef GLOBAL_PRINT
-readStatistics(firstS);
+readStatistics(firstS, par);
 
 if (firstS) freeStatisticsList(firstS);
 
@@ -887,7 +919,7 @@ void initialize(sConfiguration * configuration, MYSQL *conn, sList * application
 
 /*
  * 		Name:					calculate_Nu
- * 		Input parameters:		MYSQL *conn, char * uniqueFilename, sList *current, double nu_1, double w1, double csi_1, double chi_c_1
+ * 		Input parameters:		MYSQL *conn, char * finsertuniqueFilename, sList *current, double nu_1, double w1, double csi_1, double chi_c_1
  * 		Output parameters:		none
  * 		Description:			Given nu_1 and other measures related to the first applications:
  * 								- it computes the nu indices for all the other applications:
@@ -910,7 +942,7 @@ void calculate_Nu(sConfiguration * configuration, MYSQL *conn, sList *first, str
 	int minCapacity= 0;
 
 
-	sprintf(debugMsg, "CALCULATE_NU");debugBanner(debugMsg, par);
+	sprintf(debugMsg, "Calculate nu indices and bounds for each application");debugBanner(debugMsg, par);
 
 	//TO DO sum di V_i -> DONE
 	while (current != NULL)

@@ -195,7 +195,7 @@ int main(int argc, char **argv)
     gettimeofday(&tv_final_locals, NULL);
 
     debugInformational("Final solution\n", par);
-    readList(first, par);
+    writeList(conn, getConfigurationValue(configuration,"OptDB_dbName"),first, par);
 
     /* De-allocate resources and close connection */
     fclose(stream);

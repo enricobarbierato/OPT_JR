@@ -56,6 +56,7 @@ void addParameters(sList ** first,   sList ** current, char *session_app_id, cha
 	  new->csi = csi;
 	  new->boundIterations = 0;
 
+
 	  new->stage = (char *)malloc(1024);
 	  if (new->stage == NULL)
 	  {
@@ -123,13 +124,42 @@ sList * searchApplication(sList * first, char *session_appId)
 }
 
 /*
- * 		Name:					readList
+ * 		Name:					writeList
  * 		Input parameters:		sList *pointer
  * 		Output parameters:		Pointer to the first application
  * 		Description:			This function prints the information about all the applications in the list. It is used for debug only.
  *
  */
 
+
+void writeList(MYSQL *conn, char * dbName, sList *pointer, struct optJrParameters par)
+{
+	char debugMsg[DEBUG_MSG];
+	char sqlStatement[512];
+
+	sprintf(debugMsg, "\n\nApplications list content:\n");debugInformational(debugMsg, par);
+
+
+	while (pointer!=NULL)
+	{
+		sprintf(sqlStatement, "insert %s.OPT_SESSIONS_RESULTS_TABLE "
+				"values('%s', '%s',%d, %d)",
+				dbName,
+				par.filename,
+				pointer->app_id,
+				pointer->currentCores_d,
+				pointer->vm
+			);
+		if (mysql_query(conn, sqlStatement))
+		{
+				char error[512];
+				sprintf(error, " %s", sqlStatement);
+				DBerror(conn, error);
+		}
+		pointer = pointer->next;
+	}
+	sprintf(debugMsg, "\n");debugMessage(debugMsg, par);
+}
 
 void readList(sList *pointer, struct optJrParameters par)
 {
@@ -146,6 +176,7 @@ void readList(sList *pointer, struct optJrParameters par)
 	}
 	sprintf(debugMsg, "\n");debugMessage(debugMsg, par);
 }
+
 
 void readSolution(sList *pointer)
 {
