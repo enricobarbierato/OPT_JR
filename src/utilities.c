@@ -756,7 +756,7 @@ char * extractRowMatchingPattern(char *text, char *pattern)
 		exit(-1);
 	}
 
-	line = strstr(text, pattern);printf("test %s", text);
+	line = strstr(text, pattern);
 	if (line == NULL)
 	{
 		printf("Fatal error: extractRowMatchingPattern: pattern %s was not found in predictor output file\n", pattern);

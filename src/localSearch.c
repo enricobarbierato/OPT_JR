@@ -242,6 +242,7 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 	char dbName[64];
 	char dir[1024];
 
+
 	if (output1 == NULL)
 	{
 		printf("Malloc failure: invokePredictor: output1\n");
@@ -255,7 +256,7 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 	/* Consider always the same folder and lua file (replacing the number of nodes)
 	 This is possible because the variance between the log folders is small*/
 
-	strcpy(path, getConfigurationValue(configuration, "FAKE"));
+	strcpy(path, getConfigurationValue(configuration, "RESULTS_HOME"));
 	strcpy(dir, readFolder(path));
 
 	//sprintf(mvCmd, "cd %s;mv %s %d_%d_%s_%d", path, dir, nNodes, currentCores, memory, datasize);
@@ -307,7 +308,10 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 				sprintf(debugMsg, "Last SQL statement returned 0 rows. Invoking predictor...\n");
 				debugMessage(debugMsg, par);
 
-				sprintf(path, "%s/%s/logs", getConfigurationValue(configuration, "FAKE"), appId);
+				/* Replaced FAKE variable with RESULTS_HOME */
+				//sprintf(path, "%s/%s/logs", getConfigurationValue(configuration, "RESULTS_HOME"), appId);
+				sprintf(path, "%s/%s/%s/logs", getConfigurationValue(configuration, "RESULTS_HOME"), readFolder(path), appId);
+
 
 				strcpy(subfolder, readFolder(path));
 				sprintf(cmd, "%s/%s/", path, subfolder);
@@ -318,12 +322,14 @@ char* invokePredictor(sConfiguration * configuration, MYSQL *conn, int nNodes, i
 				char pattern[64];
 
 				sprintf(pattern, "Nodes = %d",(nNodes*currentCores));
-				writeFile(lua, replace(readFile(lua), pattern));
+				//writeFile(lua, replace(readFile(lua), pattern));
+				writeFile("/tmp/temp.lua", replace(readFile(lua), pattern));
 
 				double systemTime;
 				double stageTime;
 
-				sprintf(cmd, "cd %s;./dagsim.sh %s -s > /tmp/outputDagsim.txt", getConfigurationValue(configuration, "DAGSIM_HOME"), lua);
+				/* Using /tmp/temp.lua instead of lua variable, so the original file is never overwritten */
+				sprintf(cmd, "cd %s;./dagsim.sh %s -s > /tmp/outputDagsim.txt", getConfigurationValue(configuration, "DAGSIM_HOME"), "/tmp/temp.lua");
 				sprintf(debugMsg, "Executing predictor: %s\n", cmd);debugMessage(debugMsg, par);
 				_run(cmd, par);
 				switch(flagDagsim)
@@ -678,6 +684,11 @@ void findBound(sConfiguration *configuration, MYSQL *conn, char *db,  sList *poi
                         , db, pointer->app_id, pointer->datasetSize, pointer->Deadline_d);
 
     MYSQL_ROW row = executeSQL(conn, statement, par);
+    if (row == NULL)
+    {
+    	printf("Fatal error: no matches found on OPTIMIZER_CONFIGURATION_TABLE.\nCHeck that OPT_IC was run over the specific application.\n");
+    	exit(-1);
+    }
 
     pointer->nCores_DB_d = atoi(row[0]);
     pointer->vm = atoi(row[1]);
